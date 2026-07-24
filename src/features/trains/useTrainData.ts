@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { fetchServiceStatus, fetchTrains } from "@/lib/apiClient";
-import type { ServiceStatus, TrainLocation } from "@/types/train";
+import type { ProviderSource, ServiceStatus, TrainLocation } from "@/types/train";
 
 /** データ再取得間隔(ミリ秒)。5〜10秒の範囲。 */
 export const REFRESH_MS = 7000;
@@ -11,6 +11,12 @@ interface TrainDataState {
   trains: TrainLocation[];
   serviceStatus: ServiceStatus | null;
   isMock: boolean;
+  /** 実際に使われたデータ取得元 */
+  source: ProviderSource;
+  /** 実データ失敗によるモックフォールバックか */
+  fallback: boolean;
+  /** モック表示中などの注意書き */
+  notice: string | null;
   /** 初回ロード中か */
   loading: boolean;
   /** 直近の取得でエラーが発生したか */
@@ -35,6 +41,9 @@ export function useTrainData(): UseTrainDataResult {
     trains: [],
     serviceStatus: null,
     isMock: true,
+    source: "mock",
+    fallback: false,
+    notice: null,
     loading: true,
     error: null,
     lastUpdatedAt: null,
@@ -47,6 +56,9 @@ export function useTrainData(): UseTrainDataResult {
         ...prev,
         trains: data.trains,
         isMock: data.isMock,
+        source: data.source,
+        fallback: data.fallback,
+        notice: data.notice,
         loading: false,
         error: null,
         lastUpdatedAt: new Date(),
@@ -70,7 +82,6 @@ export function useTrainData(): UseTrainDataResult {
       setState((prev) => ({
         ...prev,
         serviceStatus: data.serviceStatus,
-        isMock: data.isMock,
       }));
     } catch {
       // 運行情報の失敗は致命的でないため、静かに無視(既存表示を維持)

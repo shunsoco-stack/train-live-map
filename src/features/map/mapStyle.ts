@@ -3,17 +3,17 @@ import type { StyleSpecification } from "maplibre-gl";
 /**
  * 地図タイルの設定。
  *
- * OpenStreetMap ベースの CARTO ダークタイルを使用し、
- * 鉄道アプリらしい落ち着いた暗色の地図にする。
+ * OpenStreetMap ベースの CARTO Voyager タイルを使用し、
+ * Google Maps に近い「明るく・道路や公園・POI が色分けされた」地図にする。
  *
  * 注意: 地図タイルには各提供元の利用規約がある。
  * 本番運用や商用利用の際は必ず利用条件を確認し、必要に応じて
  * 自前のタイルサーバーや契約済みプロバイダに差し替えること。
  */
-const CARTO_DARK_TILES = [
-  "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-  "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-  "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+const CARTO_VOYAGER_TILES = [
+  "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+  "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+  "https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
 ];
 
 const ATTRIBUTION =
@@ -22,18 +22,18 @@ const ATTRIBUTION =
 export const MAP_STYLE: StyleSpecification = {
   version: 8,
   sources: {
-    "osm-dark": {
+    "osm-voyager": {
       type: "raster",
-      tiles: CARTO_DARK_TILES,
+      tiles: CARTO_VOYAGER_TILES,
       tileSize: 256,
       attribution: ATTRIBUTION,
     },
   },
   layers: [
     {
-      id: "osm-dark",
+      id: "osm-voyager",
       type: "raster",
-      source: "osm-dark",
+      source: "osm-voyager",
     },
   ],
 };

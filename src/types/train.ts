@@ -55,16 +55,28 @@ export interface ServiceStatus {
   dataAccuracy: DataAccuracy;
 }
 
+/** データ取得元の種別 */
+export type ProviderSource = "odpt" | "mock";
+
 /** API /api/trains のレスポンス形式 */
 export interface TrainsApiResponse {
   trains: TrainLocation[];
   /** ISO8601 文字列。サーバー側での生成時刻 */
   generatedAt: string;
   isMock: boolean;
+  /** 実際に使われたデータ取得元 */
+  source: ProviderSource;
+  /** 実データ失敗によるモックフォールバックか */
+  fallback: boolean;
+  /** UI に表示する注意書き(モック表示中など)。不要なら null。 */
+  notice: string | null;
 }
 
 /** API /api/service-status のレスポンス形式 */
 export interface ServiceStatusApiResponse {
   serviceStatus: ServiceStatus;
   isMock: boolean;
+  source: ProviderSource;
+  fallback: boolean;
+  notice: string | null;
 }

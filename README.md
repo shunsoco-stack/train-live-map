@@ -8,9 +8,11 @@
 
 を、スマートフォンから素早く把握できることを目的にしています。
 
-> ⚠️ **現在表示されている列車位置はすべてモック(擬似)データです。**
-> JR東日本の正式なリアルタイム列車位置 API にはまだ接続していません。
-> 実データへ差し替えられる設計になっています(後述)。
+> ⚠️ **既定ではモック(擬似)データで動作します。**
+> 公共交通オープンデータセンター(ODPT)のアクセストークンを設定すると、
+> **ODPT の実データ(`odpt:Train` / `odpt:TrainInformation`)へ自動的に切り替わります**。
+> ODPT 取得に失敗した場合は自動でモックにフォールバックし、画面に
+> 「現在モックデータを表示しています」と明示します(後述の「ODPT 実データ接続」参照)。
 
 ---
 
@@ -21,7 +23,8 @@
 | フレームワーク | Next.js（App Router）/ React 19 |
 | 言語 | TypeScript |
 | スタイリング | Tailwind CSS |
-| 地図 | MapLibre GL JS + OpenStreetMap 系タイル（CARTO Dark） |
+| 地図 | MapLibre GL JS + OpenStreetMap 系タイル（CARTO Voyager / 明るい Google Maps 風） |
+| 実データ | 公共交通オープンデータセンター（ODPT）API |
 | アイコン | lucide-react |
 | Lint | ESLint（eslint-config-next） |
 | パッケージ管理 | npm |
@@ -71,19 +74,23 @@ npm run lint
 src/
   app/                     # Next.js App Router（ページ・レイアウト・API）
     api/
-      trains/route.ts        # GET /api/trains
-      service-status/route.ts# GET /api/service-status
+      trains/route.ts         # GET /api/trains
+      service-status/route.ts # GET /api/service-status
+      dev/debug/route.ts      # GET /api/dev/debug（開発時のみ）
+    dev/debug/page.tsx        # デバッグ画面（開発時のみ）
     layout.tsx
-    page.tsx                 # サーバーコンポーネント（薄い入口）
+    page.tsx                  # サーバーコンポーネント（薄い入口）
     globals.css
-  components/              # 汎用 UI（ヘッダー・バッジ・更新状況・エラー表示）
+  components/              # 汎用 UI（ヘッダー・データ元バッジ・注意書き・更新状況・エラー表示）
   features/               # 機能単位のコンポーネント
     map/                    # 地図（MapLibre）
     trains/                 # 列車一覧・詳細・フィルター・データ取得フック
     service-status/         # 運行情報バー
-  lib/                    # 汎用ロジック（時刻・座標・状態判定・API クライアント）
-  services/               # サービス層（プロバイダの選択を集約）
-  providers/              # データ取得プロバイダ（Mock / GTFS-RT / JR東日本）
+    dev/                    # デバッグ画面のビュー
+  lib/                    # 汎用ロジック（時刻・座標・状態判定・API クライアント・ログ）
+    odpt/                   # ODPT 専用（config / types / api / mapper）
+  services/               # サービス層（プロバイダ選択・フォールバック・デバッグ）
+  providers/              # データ取得プロバイダ（Mock / ODPT / GTFS-RT / JR東日本）
   types/                  # 型定義（ドメイン型）
   data/                   # 静的データ（駅・路線 GeoJSON）
 ```
@@ -95,10 +102,14 @@ UI (features)  →  lib/apiClient  →  /api/*（Route Handler）
                                         ↓
                               services/trainLocationService
                                         ↓
-                              providers/*Provider（現状は Mock）
+        ┌───────────────────────────────┴───────────────────────────────┐
+        │ ODPT トークンあり → OdptTrainLocationProvider（実データ）        │
+        │   └─ 取得失敗時は自動で ↓ へフォールバック                       │
+        │ ODPT トークンなし / 失敗 → MockTrainLocationProvider（モック）    │
+        └────────────────────────────────────────────────────────────────┘
 ```
 
-UI は `MockTrainLocationProvider` を直接参照せず、**必ず API 経由 → サービス層 → プロバイダ**の順でデータを取得します。これによりデータ取得部分が UI から分離され、差し替えが容易です。
+UI は個々のプロバイダ実装を直接参照せず、**必ず API 経由 → サービス層 → プロバイダ**の順でデータを取得します。これによりデータ取得部分が UI から分離され、差し替えが容易です。
 
 ---
 
@@ -131,7 +142,7 @@ UI は `MockTrainLocationProvider` を直接参照せず、**必ず API 経由 �
 
 ---
 
-## 実データ接続時の差し替え方法
+## ODPT 実データ接続
 
 データ取得は `TrainLocationProvider` インターフェース（`src/providers/TrainLocationProvider.ts`）に抽象化されています。
 
@@ -143,27 +154,93 @@ interface TrainLocationProvider {
 }
 ```
 
-実データへ移行するには、以下の雛形を実装し、`src/services/trainLocationService.ts` の `createProvider()` が返すプロバイダを差し替えるだけです。UI 側の変更は不要です。
+実データ用に `OdptTrainLocationProvider`（`src/providers/OdptTrainLocationProvider.ts`）を追加済みです。`MockTrainLocationProvider` は削除せず、フォールバックとして残しています。
 
-```ts
-// src/services/trainLocationService.ts
-function createProvider(): TrainLocationProvider {
-  // GTFS-Realtime に接続する場合:
-  // return new GtfsRealtimeProvider(process.env.GTFS_RT_FEED_URL ?? "");
+### ODPT とは（API 調査サマリ）
 
-  // JR東日本 API に接続する場合:
-  // return new JrEastProvider(process.env.JR_EAST_API_KEY ?? "");
+- **提供元**: 公共交通オープンデータ協議会（公共交通オープンデータセンター / ODPT）。
+- **利用可能な API（v4）**: `https://api.odpt.org/api/v4/`
+  - `odpt:Train` … 列車位置（**駅間ベース**。多くの事業者で緯度経度は持たない）
+  - `odpt:TrainInformation` … 運行情報（遅延・見合わせ等）
+  - ほかに `odpt:Railway` / `odpt:Station` / `odpt:TrainTimetable` など。
+- **認証方法**: 発行されたアクセストークンをクエリ `acl:consumerKey=<TOKEN>` に付与。
+- **東海道線が対象か**: JR 東日本の列車ロケーション情報（`r_train_location-jreast`）が公開されており、路線 `odpt.Railway:JR-East.Tokaido` が対象候補です。ただし**区間・時間帯によって提供有無が変動**するため、実トークンでの確認が必要です（本アプリは空応答・未提供でも安全にフォールバックします）。
+- **東京〜横浜が取得できるか**: 取得できた列車のうち、`fromStation` / `toStation` が対象 5 駅（東京・新橋・品川・川崎・横浜）に紐付くものだけを表示します。区間外の列車は除外します。
+- **レスポンス例（`odpt:Train`）**:
 
-  return new MockTrainLocationProvider(MODULE_START_MS);
-}
+  ```json
+  [
+    {
+      "@type": "odpt:Train",
+      "owl:sameAs": "odpt.Train:JR-East.Tokaido.123M",
+      "dc:date": "2026-07-24T07:50:00+09:00",
+      "odpt:railway": "odpt.Railway:JR-East.Tokaido",
+      "odpt:trainNumber": "123M",
+      "odpt:trainType": "odpt.TrainType:JR-East.Local",
+      "odpt:fromStation": "odpt.Station:JR-East.Tokaido.Shimbashi",
+      "odpt:toStation": "odpt.Station:JR-East.Tokaido.Shinagawa",
+      "odpt:railDirection": "odpt.RailDirection:Outbound",
+      "odpt:delay": 180,
+      "odpt:destinationStation": ["odpt.Station:JR-East.Tokaido.Yokohama"]
+    }
+  ]
+  ```
+
+- **更新頻度**: 列車位置は駅通過・数十秒間隔で更新されます（各要素の `odpt:frequency` が推奨再取得間隔の目安）。本アプリは約 7 秒間隔でポーリングします。
+
+### 登録・アクセストークン取得方法
+
+1. ODPT 開発者サイト <https://developer.odpt.org/> にアクセスし、**無料のユーザー登録**を行う。
+2. ログイン後、アプリケーションを登録して**アクセストークン（consumerKey）を発行**する。
+3. JR 東日本など一部データは、利用にあたり**追加の同意・申請**が必要な場合があります。データカタログ <https://ckan.odpt.org/> で対象データセットの提供条件を確認してください。
+
+### 環境変数設定
+
+`.env.example` をコピーして `.env.local` を作成し、トークンを設定します。
+
+```bash
+cp .env.example .env.local
 ```
 
-雛形:
+```dotenv
+# 必須（未設定ならモックで動作）
+ODPT_ACCESS_TOKEN=発行されたトークン
 
-- `src/providers/GtfsRealtimeProvider.ts`
-- `src/providers/JrEastProvider.ts`
+# 任意（未設定なら既定値）
+# ODPT_API_BASE_URL=https://api.odpt.org/api/v4
+# ODPT_RAILWAY=odpt.Railway:JR-East.Tokaido
+# ODPT_OPERATOR=odpt.Operator:JR-East
+# ODPT_TIMEOUT_MS=8000
+# ODPT_RETRIES=2
+```
 
-**API キーやトークンはコードに埋め込まず、環境変数（`.env.local` など）から読み込んでください。** `.env*` は `.gitignore` 済みです。
+**トークンはコードに埋め込まないでください。** `.env.local` / `.env*` は `.gitignore` 済みでコミットされません。設定後、開発サーバーを再起動すると自動的に ODPT 実データへ切り替わります。
+
+### フォールバック動作
+
+- `ODPT_ACCESS_TOKEN` 未設定 … 最初からモックで動作（「現在モックデータを表示しています(ODPT 未設定)」）。
+- ODPT 取得成功 … 実データを表示（ヘッダーに「ODPT ライブ(推定位置)」）。
+- ODPT 取得失敗（HTTP エラー・タイムアウト・解析失敗など）… **自動でモックへフォールバック**し、「現在モックデータを表示しています(実データの取得に失敗したため)」を表示。
+- サービス層（`src/services/trainLocationService.ts`）が優先順位とフォールバックを一元管理します。UI の変更は不要です。
+
+### デバッグ画面（開発時のみ）
+
+- `http://localhost:3000/dev/debug` … 取得成功可否・使用中 Provider・件数・通信時間・更新時刻・エラー内容・レスポンス JSON（先頭 3 件）を表示。
+- `GET /api/dev/debug` … 同等の情報を JSON で返却。
+- どちらも `NODE_ENV === "production"` では 404 になります。
+
+### 位置は「実測」か「推定」か
+
+- `odpt:Train` は基本的に緯度経度を持たないため、`fromStation` / `toStation` と路線 GeoJSON から**位置を推定**します（`dataAccuracy: "estimated"`、駅間の中点に配置）。
+- 万一 ODPT が `geo:lat` / `geo:long` を返す場合はそれを使用（`dataAccuracy: "actual"`）。
+- 推定であることは詳細パネルの「データ精度」と注意書き「位置情報はモックまたは推定です」で明示します。
+
+### 今後 GTFS-RT / JR東日本 API へ切り替える場合の変更箇所
+
+- 雛形 `src/providers/GtfsRealtimeProvider.ts` / `src/providers/JrEastProvider.ts` を実装。
+- `src/services/trainLocationService.ts` の `getRealProvider()` の分岐を追加（例: `new GtfsRealtimeProvider(process.env.GTFS_RT_FEED_URL ?? "")`）。
+- GTFS-RT の場合は VehiclePositions が緯度経度を持つため、`src/lib/odpt/mapper.ts` の推定ロジックの代わりに座標を直接 `TrainLocation` へ変換すればよい（推定 → 実測）。
+- **UI・型・API 経路の変更は不要**です。
 
 ---
 
@@ -186,16 +263,19 @@ function createProvider(): TrainLocationProvider {
 
 ## 現在の制約
 
-- **列車位置はすべてモックデータ**であり、実際の運行とは無関係です。
+- **既定ではモックデータ**で動作します。ODPT トークン設定時のみ実データに切り替わります。
+- ODPT の `odpt:Train` は**位置を駅間で表現**するため、地図上の位置は**推定（駅間の中点）**です。実際の走行位置とは差があります。
+- ODPT は**進捗率・速度・駅間停止の開始時刻を提供しない**ため、実データ時は速度が推定値、停止時間（`stoppedSince`）は表示されません。駅間停止の検知にはスナップショットの差分比較（今後の課題）が必要です。
+- JR 東日本 東海道線のリアルタイム提供は**区間・時間帯で変動**します。未提供時は対象列車が 0 件になり得ます。
 - 対象は東海道線 東京〜横浜間の 5 駅のみです。
 - 路線形状は概略で、細かい線路形状（分岐・カーブ）は再現していません。
-- 停止時間はサーバープロセスの起動時刻を基準にしているため、サーバー再起動で基準がリセットされます。
+- モックの停止時間はサーバープロセスの起動時刻を基準にしているため、サーバー再起動で基準がリセットされます。
 
 ---
 
 ## 地図タイル利用時の注意
 
-- 本アプリは OpenStreetMap ベースの **CARTO Dark** ラスタタイルを使用しています。
+- 本アプリは OpenStreetMap ベースの **CARTO Voyager**（明るい Google Maps 風）ラスタタイルを使用しています。
 - 地図タイルには各提供元の**利用規約・利用制限（レート制限、帰属表示など）**があります。
   - OpenStreetMap: <https://www.openstreetmap.org/copyright>
   - CARTO: <https://carto.com/attributions>
@@ -204,4 +284,6 @@ function createProvider(): TrainLocationProvider {
 
 ## 外部データ利用規約の確認
 
-将来、GTFS-RT や JR東日本の API など外部データに接続する際は、**各データ提供者の利用規約・ライセンス・再配布条件を必ず確認**してください。取得データの表示・保存・二次利用の可否は提供元により異なります。
+- **ODPT**: 利用にあたっては公共交通オープンデータセンターの利用規約・データ提供者ごとの条件に従ってください。データセットの提供条件は <https://ckan.odpt.org/> 、開発者向け情報は <https://developer.odpt.org/> で確認できます。JR 東日本など一部データは追加の同意・申請が必要な場合があります。
+- 取得データの**表示・保存・二次利用・再配布の可否は提供元により異なります**。本アプリのように履歴保存（将来の Supabase 連携など）を行う場合は、保存・再配布が許諾されているか必ず確認してください。
+- 将来 GTFS-RT や他の API へ接続する際も、**各データ提供者の利用規約・ライセンス・帰属表示条件を必ず確認**してください。

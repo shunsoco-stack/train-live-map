@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import { DataSourceNotice } from "@/components/DataSourceNotice";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { MapPanel } from "@/features/map/MapPanel";
 import { ServiceStatusBar } from "@/features/service-status/ServiceStatusBar";
@@ -21,7 +22,7 @@ import {
  * データ取得・状態管理・レイアウトを担う。
  */
 export function TrainDashboard() {
-  const { trains, serviceStatus, isMock, loading, error, lastUpdatedAt, refresh } =
+  const { trains, serviceStatus, source, fallback, notice, loading, error, lastUpdatedAt, refresh } =
     useTrainData();
   const now = useNow(1000);
 
@@ -48,7 +49,7 @@ export function TrainDashboard() {
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-rail-bg">
-      <AppHeader lastUpdatedAt={lastUpdatedAt} isMock={isMock} />
+      <AppHeader lastUpdatedAt={lastUpdatedAt} source={source} />
 
       <main className="relative flex-1">
         {/* 地図(画面の中心) */}
@@ -62,6 +63,7 @@ export function TrainDashboard() {
         {/* 上部オーバーレイ: 運行情報・エラー */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col gap-2 p-3">
           <ServiceStatusBar serviceStatus={serviceStatus} />
+          <DataSourceNotice notice={notice} fallback={fallback} />
           {error && <ErrorNotice message={error} onRetry={refresh} />}
         </div>
 
