@@ -31,6 +31,13 @@ export const MAP_STYLE: StyleSpecification = {
   },
   layers: [
     {
+      // タイル読み込み前・失敗時でも地図が必ず描画されるよう、下地の背景を敷く
+      // (Google Maps の読み込み中に近い明るいグレー)
+      id: "background",
+      type: "background",
+      paint: { "background-color": "#e8eaed" },
+    },
+    {
       id: "osm-voyager",
       type: "raster",
       source: "osm-voyager",

@@ -7,26 +7,29 @@ interface ServiceStatusBarProps {
 
 const SEVERITY_STYLE: Record<
   ServiceStatus["severity"],
-  { bg: string; text: string; icon: typeof Info }
+  { border: string; accent: string; icon: typeof Info }
 > = {
   normal: {
-    bg: "bg-emerald-500/10 border-emerald-500/40",
-    text: "text-emerald-200",
+    border: "border-emerald-500/60",
+    accent: "text-emerald-300",
     icon: CheckCircle2,
   },
   minor: {
-    bg: "bg-amber-500/10 border-amber-500/40",
-    text: "text-amber-200",
+    border: "border-amber-500/60",
+    accent: "text-amber-300",
     icon: AlertTriangle,
   },
   major: {
-    bg: "bg-red-500/15 border-red-500/50",
-    text: "text-red-200",
+    border: "border-red-500/70",
+    accent: "text-red-300",
     icon: AlertTriangle,
   },
 };
 
-/** 路線の運行情報を簡潔に表示するバー。 */
+/**
+ * 路線の運行情報を簡潔に表示するバー。
+ * 明るい地図の上でも読めるよう、不透明なダークカード + 重要度色のアクセントで表示する。
+ */
 export function ServiceStatusBar({ serviceStatus }: ServiceStatusBarProps) {
   if (!serviceStatus) return null;
   const style = SEVERITY_STYLE[serviceStatus.severity];
@@ -35,12 +38,12 @@ export function ServiceStatusBar({ serviceStatus }: ServiceStatusBarProps) {
   return (
     <div
       role="status"
-      className={`pointer-events-auto flex items-start gap-2 rounded-lg border px-3 py-2 text-xs backdrop-blur ${style.bg} ${style.text}`}
+      className={`pointer-events-auto flex items-start gap-2 rounded-lg border bg-rail-surface/95 px-3 py-2 text-xs text-rail-text shadow-lg backdrop-blur ${style.border}`}
     >
-      <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+      <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${style.accent}`} aria-hidden />
       <p className="leading-snug">
-        <span className="font-semibold">{serviceStatus.lineName}</span>
-        <span className="mx-1" aria-hidden>
+        <span className={`font-semibold ${style.accent}`}>{serviceStatus.lineName}</span>
+        <span className="mx-1 text-rail-muted" aria-hidden>
           ｜
         </span>
         {serviceStatus.message}

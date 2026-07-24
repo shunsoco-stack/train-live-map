@@ -12,13 +12,12 @@ export function DataSourceNotice({
   fallback: boolean;
 }) {
   if (!notice) return null;
-  const tone = fallback
-    ? "border-red-500/50 bg-red-500/15 text-red-100"
-    : "border-amber-500/40 bg-amber-500/10 text-amber-200";
+  // 明るい地図の上でも読めるよう、不透明なダークカードで表示する。
+  const accent = fallback ? "border-red-500/70 text-red-300" : "border-amber-500/60 text-amber-300";
   return (
     <div
       role="status"
-      className={`pointer-events-auto flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs backdrop-blur ${tone}`}
+      className={`pointer-events-auto flex items-center gap-2 rounded-lg border bg-rail-surface/95 px-3 py-1.5 text-xs text-rail-text shadow-lg backdrop-blur ${accent}`}
     >
       <Info className="h-3.5 w-3.5 shrink-0" aria-hidden />
       <span>{notice}</span>
