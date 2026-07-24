@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: #0a1512;
+  color: #e6f2ed;
+  -webkit-font-smoothing: antialiased;
+  /* iPhone Safari のアドレスバー変動に強い高さ指定の補助 */
+  overscroll-behavior: none;
+}
+
+/* iOS Safari のセーフエリアを尊重する補助クラス */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* MapLibre のコントロールをダークテーマに馴染ませる */
+.maplibregl-ctrl-group {
+  background: rgba(15, 31, 26, 0.9) !important;
+  border: 1px solid #1c332b !important;
+}
+.maplibregl-ctrl-group button {
+  background-color: transparent !important;
+}
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid #1c332b !important;
+}
+.maplibregl-ctrl button .maplibregl-ctrl-icon {
+  filter: invert(0.85);
+}
+.maplibregl-ctrl-attrib {
+  background: rgba(10, 21, 18, 0.75) !important;
+}
+.maplibregl-ctrl-attrib a {
+  color: #8fae9f !important;
+}
