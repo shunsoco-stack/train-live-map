@@ -2,7 +2,11 @@ import type { TrainLocationProvider } from "@/providers/TrainLocationProvider";
 import { MockTrainLocationProvider } from "@/providers/MockTrainLocationProvider";
 import { OdptTrainLocationProvider } from "@/providers/OdptTrainLocationProvider";
 import { getOdptConfig, isOdptConfigured } from "@/lib/odpt/config";
-import { fetchOdptTrains } from "@/lib/odpt/api";
+import {
+  fetchOdptRailways,
+  fetchOdptTrainInformation,
+  fetchOdptTrains,
+} from "@/lib/odpt/api";
 import { createLogger } from "@/lib/logger";
 import type { ProviderSource, ServiceStatus, TrainLocation } from "@/types/train";
 
@@ -103,6 +107,14 @@ export const trainLocationService = {
   },
 };
 
+/** 個別の診断結果。 */
+export interface ProbeResult {
+  label: string;
+  success: boolean;
+  count: number;
+  error: string | null;
+}
+
 /** デバッグ画面用のスナップショット型。 */
 export interface DebugSnapshot {
   odptConfigured: boolean;
@@ -116,6 +128,10 @@ export interface DebugSnapshot {
   error: string | null;
   /** ODPT の生レスポンス(成功時のみ、先頭数件) */
   rawSample: unknown;
+  /** 接続診断(列車位置・運行情報・路線一覧) */
+  probes: ProbeResult[];
+  /** 事業者が公開している路線 ID の一覧(診断で取得できた場合) */
+  availableRailways: string[];
 }
 
 /**
@@ -125,7 +141,7 @@ export interface DebugSnapshot {
 export async function getDebugSnapshot(): Promise<DebugSnapshot> {
   const config = getOdptConfig();
   const configured = isOdptConfigured(config);
-  const base: Omit<DebugSnapshot, "success" | "count" | "durationMs" | "error" | "rawSample" | "activeSource"> = {
+  const base = {
     odptConfigured: configured,
     railway: config.railway,
     baseUrl: config.baseUrl,
@@ -135,35 +151,94 @@ export async function getDebugSnapshot(): Promise<DebugSnapshot> {
   if (!configured) {
     return {
       ...base,
-      activeSource: "mock",
+      activeSource: "mock" as const,
       success: false,
       count: 0,
       durationMs: null,
       error: "ODPT_ACCESS_TOKEN が未設定です(モック動作中)。",
       rawSample: null,
+      probes: [],
+      availableRailways: [],
     };
   }
 
+  const errMsg = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+  // 1) 列車位置(本命)
+  let success = false;
+  let count = 0;
+  let durationMs: number | null = null;
+  let error: string | null = null;
+  let rawSample: unknown = null;
   try {
-    const { data, durationMs } = await fetchOdptTrains(config.railway, config);
-    return {
-      ...base,
-      activeSource: "odpt",
-      success: true,
-      count: data.length,
-      durationMs,
-      error: null,
-      rawSample: data.slice(0, 3),
-    };
+    const res = await fetchOdptTrains(config.railway, config);
+    success = true;
+    count = res.data.length;
+    durationMs = res.durationMs;
+    rawSample = res.data.slice(0, 3);
   } catch (err) {
-    return {
-      ...base,
-      activeSource: "mock",
+    error = errMsg(err);
+  }
+
+  const probes: ProbeResult[] = [
+    {
+      label: `列車位置 odpt:Train (${config.railway})`,
+      success,
+      count,
+      error,
+    },
+  ];
+
+  // 2) 運行情報(列車位置が未提供でも取得できることが多い)
+  try {
+    const res = await fetchOdptTrainInformation(config.railway, config);
+    probes.push({
+      label: `運行情報 odpt:TrainInformation (${config.railway})`,
+      success: true,
+      count: res.data.length,
+      error: null,
+    });
+  } catch (err) {
+    probes.push({
+      label: `運行情報 odpt:TrainInformation (${config.railway})`,
       success: false,
       count: 0,
-      durationMs: null,
-      error: err instanceof Error ? err.message : String(err),
-      rawSample: null,
-    };
+      error: errMsg(err),
+    });
   }
+
+  // 3) 事業者の路線一覧(路線 ID が正しいかの確認用)
+  let availableRailways: string[] = [];
+  try {
+    const res = await fetchOdptRailways(config.operator, config);
+    availableRailways = res.data
+      .map((r) => r["owl:sameAs"] ?? r["@id"] ?? "")
+      .filter((id): id is string => id.length > 0)
+      .sort();
+    probes.push({
+      label: `路線一覧 odpt:Railway (${config.operator})`,
+      success: true,
+      count: res.data.length,
+      error: null,
+    });
+  } catch (err) {
+    probes.push({
+      label: `路線一覧 odpt:Railway (${config.operator})`,
+      success: false,
+      count: 0,
+      error: errMsg(err),
+    });
+  }
+
+  return {
+    ...base,
+    activeSource: success ? ("odpt" as const) : ("mock" as const),
+    success,
+    count,
+    durationMs,
+    error,
+    rawSample,
+    probes,
+    availableRailways,
+  };
 }

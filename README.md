@@ -213,7 +213,16 @@ interface TrainLocationProvider {
 
 ### 環境変数設定
 
-`.env.example` をコピーして `.env.local` を作成し、トークンを設定します。
+**かんたん設定（推奨）**: リポジトリのディレクトリで次を実行し、トークンを貼り付けます。入力内容は画面に表示されず、`.env.local`（権限 600 / git 管理外）に保存されます。
+
+```bash
+bash scripts/set-odpt-token.sh
+```
+
+設定後、開発サーバーを再起動（`Ctrl+C` → `npm run dev`）すると実データに切り替わります。
+`http://localhost:3000/dev/debug` の **接続診断** で、列車位置・運行情報・路線一覧それぞれの取得可否を確認できます。
+
+**手動設定**: `.env.example` をコピーして `.env.local` を作成し、トークンを設定します。
 
 ```bash
 cp .env.example .env.local
@@ -243,6 +252,10 @@ ODPT_ACCESS_TOKEN=発行されたトークン
 ### デバッグ画面（開発時のみ）
 
 - `http://localhost:3000/dev/debug` … 取得成功可否・使用中 Provider・件数・通信時間・更新時刻・エラー内容・レスポンス JSON（先頭 3 件）を表示。
+- **接続診断**セクションで、次の 3 つを個別に検査します。実データが出ないときの切り分けに使ってください。
+  - 列車位置 `odpt:Train`（対象路線）
+  - 運行情報 `odpt:TrainInformation`（対象路線）
+  - 路線一覧 `odpt:Railway`（対象事業者）→ 利用可能な路線 ID を一覧表示。対象路線が一覧に無ければ `.env.local` の `ODPT_RAILWAY` を正しい ID に変更します。
 - `GET /api/dev/debug` … 同等の情報を JSON で返却。
 - どちらも `NODE_ENV === "production"` では 404 になります。
 

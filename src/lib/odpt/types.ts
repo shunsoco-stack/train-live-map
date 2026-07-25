@@ -49,6 +49,17 @@ export interface OdptTrain {
   "geo:long"?: number;
 }
 
+/** odpt:Railway 1 件(路線情報。診断用に利用可能な路線 ID を調べる) */
+export interface OdptRailway {
+  "@id"?: string;
+  "@type"?: string;
+  /** 路線 ID(例: odpt.Railway:JR-East.Tokaido) */
+  "owl:sameAs"?: string;
+  /** 路線名(日本語) */
+  "dc:title"?: string;
+  "odpt:operator"?: string;
+}
+
 /** odpt:TrainInformation 1 件(運行情報) */
 export interface OdptTrainInformation {
   "@id"?: string;

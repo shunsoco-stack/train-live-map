@@ -21,6 +21,8 @@ interface DebugResponse {
     fetchedAt: string;
     error: string | null;
     rawSample: unknown;
+    probes: { label: string; success: boolean; count: number; error: string | null }[];
+    availableRailways: string[];
   };
   service: {
     trains: {
@@ -103,6 +105,55 @@ export function DebugView() {
             <Row label="取得時刻" value={data.snapshot.fetchedAt} />
             {data.snapshot.error && <Row label="エラー内容" value={data.snapshot.error} danger />}
           </Section>
+
+          {data.snapshot.probes.length > 0 && (
+            <Section title="接続診断">
+              {data.snapshot.probes.map((probe) => (
+                <div
+                  key={probe.label}
+                  className="border-b border-rail-border/50 py-1.5 text-sm last:border-0"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="text-rail-muted break-all">{probe.label}</span>
+                    <span className="shrink-0 text-right">
+                      {probe.success ? (
+                        <span className="text-emerald-300">✅ {probe.count} 件</span>
+                      ) : (
+                        <span className="text-red-300">❌ 失敗</span>
+                      )}
+                    </span>
+                  </div>
+                  {probe.error && (
+                    <p className="mt-0.5 text-xs text-red-300 break-all">{probe.error}</p>
+                  )}
+                </div>
+              ))}
+            </Section>
+          )}
+
+          {data.snapshot.availableRailways.length > 0 && (
+            <Section title={`利用可能な路線 ID(${data.snapshot.availableRailways.length}件)`}>
+              <p className="mb-2 text-xs text-rail-muted">
+                対象路線が一覧に無い場合は、.env.local の ODPT_RAILWAY を正しい ID
+                に変更してください。
+              </p>
+              <ul className="max-h-56 overflow-y-auto text-xs leading-relaxed">
+                {data.snapshot.availableRailways.map((id) => (
+                  <li
+                    key={id}
+                    className={`break-all ${
+                      id === data.snapshot.railway
+                        ? "font-semibold text-emerald-300"
+                        : "text-rail-text"
+                    }`}
+                  >
+                    {id === data.snapshot.railway ? "▶ " : "・"}
+                    {id}
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
 
           <Section title="サービス層の結果(フォールバック込み)">
             <Row label="列車 source" value={data.service.trains.source} />

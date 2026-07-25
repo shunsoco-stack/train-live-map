@@ -1,5 +1,5 @@
 import { getOdptConfig, isOdptConfigured, type OdptConfig } from "@/lib/odpt/config";
-import type { OdptTrain, OdptTrainInformation } from "@/lib/odpt/types";
+import type { OdptRailway, OdptTrain, OdptTrainInformation } from "@/lib/odpt/types";
 import { createLogger } from "@/lib/logger";
 
 /**
@@ -147,5 +147,18 @@ export function fetchOdptTrainInformation(
 ): Promise<FetchResult<OdptTrainInformation[]>> {
   return fetchWithRetry<OdptTrainInformation[]>(config, "odpt:TrainInformation", {
     "odpt:railway": railway,
+  });
+}
+
+/**
+ * 指定事業者の路線一覧(odpt:Railway)を取得する。
+ * 「どの路線 ID が利用可能か」を診断するために使用する。
+ */
+export function fetchOdptRailways(
+  operator: string,
+  config: OdptConfig = getOdptConfig(),
+): Promise<FetchResult<OdptRailway[]>> {
+  return fetchWithRetry<OdptRailway[]>(config, "odpt:Railway", {
+    "odpt:operator": operator,
   });
 }
