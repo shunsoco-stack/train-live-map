@@ -35,9 +35,26 @@
 
 ## セットアップ方法
 
+### かんたん起動（macOS・推奨）
+
+ターミナルに次の 1 行を貼り付けて実行すると、**Node.js の確認 → 取得 → 依存導入 → 起動 → ブラウザ自動オープン**まで自動で行います。
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/shunsoco-stack/baobao-privacy-policy/claude/train-live-map-mvp-goow6f/scripts/start-mac.sh)
+```
+
+- リポジトリは `~/train-live-map` に取得されます（変更する場合は `TRAIN_LIVE_MAP_DIR=/path/to/dir` を指定）。
+- Node.js が未導入の場合、Homebrew があれば自動導入し、無ければ公式ダウンロードページを開いて案内します。
+- 停止するにはターミナルで `Ctrl+C` を押します。
+
+### 手動セットアップ
+
 前提: Node.js 18.18 以上（推奨 20 以上）と npm。
 
 ```bash
+git clone https://github.com/shunsoco-stack/baobao-privacy-policy.git
+cd baobao-privacy-policy
+git checkout claude/train-live-map-mvp-goow6f
 npm install
 ```
 
