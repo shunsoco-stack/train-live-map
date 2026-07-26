@@ -3,9 +3,8 @@
 このドキュメントは、**別の開発者/AI エージェントが本プロジェクトを引き継ぐため**の完全な資料です。
 アプリの目的・設計・全ファイルの役割・現状・既知の制約・次にやるべきことをまとめています。
 
-- **リポジトリ**: `shunsoco-stack/baobao-privacy-policy`（public）
-- **作業ブランチ**: `claude/train-live-map-mvp-goow6f` ← **すべての実装はこのブランチにあります（`main` には未マージ）**
-- **最新コミット**: `cfc60d3`
+- **リポジトリ**: `shunsoco-stack/train-live-map`（public）
+- **既定ブランチ**: `main`
 
 ---
 
@@ -355,7 +354,7 @@ npm run dev          # http://localhost:3000
 
 macOS なら 1 コマンドで全自動（Node導入〜ブラウザ起動まで）:
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/shunsoco-stack/baobao-privacy-policy/claude/train-live-map-mvp-goow6f/scripts/start-mac.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/shunsoco-stack/train-live-map/main/scripts/start-mac.sh)
 ```
 
 ### 検証（変更時は必ず両方通すこと）
@@ -417,18 +416,18 @@ npm run build        # 型チェック含む
 
 | SHA | 内容 |
 | --- | --- |
-| `6d20128` | MVP 実装（モックデータ・地図・詳細・フィルター） |
-| `d81210f` | ODPT プロバイダ追加＋モックフォールバック、地図を明るいタイルへ |
-| `fc15ff0` | 地図の背景レイヤー追加、明るい地図での可読性改善 |
-| `f07e525` | macOS 向けワンコマンド起動スクリプト |
-| `3fe6ae2` | ODPT トークン設定スクリプト＋接続診断 |
-| `cfc60d3` | 列車マーカーを電車アイコン化＋進行方向表示 |
+| `39e8560` | MVP 実装（モックデータ・地図・詳細・フィルター） |
+| `027bb19` | ODPT プロバイダ追加＋モックフォールバック、地図を明るいタイルへ |
+| `3a66892` | 地図の背景レイヤー追加、明るい地図での可読性改善 |
+| `132fc58` | macOS 向けワンコマンド起動スクリプト |
+| `1fd6aa4` | ODPT トークン設定スクリプト＋接続診断 |
+| `fe99b39` | 列車マーカーを電車アイコン化＋進行方向表示 |
 
 ---
 
 ## 14. 引き継ぎ時の注意（まとめ）
 
-1. **`main` ではなく `claude/train-live-map-mvp-goow6f` ブランチを見てください。**
+1. **開発は `main` ブランチから開始してください。**
 2. **ODPT の実データ疎通は未検証**です。まずトークン設定 → `/dev/debug` 確認から始めてください。
 3. データソースを変える時は `services/trainLocationService.ts` の `getRealProvider()` だけ触れば済みます。
 4. マーカーの状態表現は**色・記号・ラベルの3重**。色だけにしないでください。

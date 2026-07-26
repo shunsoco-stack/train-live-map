@@ -9,12 +9,12 @@
 #   5. 開発サーバー起動 → 起動完了を待って自動でブラウザを開く
 #
 # 使い方(ターミナルに貼り付け):
-#   bash <(curl -fsSL https://raw.githubusercontent.com/shunsoco-stack/baobao-privacy-policy/claude/train-live-map-mvp-goow6f/scripts/start-mac.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/shunsoco-stack/train-live-map/main/scripts/start-mac.sh)
 
 set -uo pipefail
 
-REPO_URL="${TRAIN_LIVE_MAP_REPO:-https://github.com/shunsoco-stack/baobao-privacy-policy.git}"
-BRANCH="${TRAIN_LIVE_MAP_BRANCH:-claude/train-live-map-mvp-goow6f}"
+REPO_URL="${TRAIN_LIVE_MAP_REPO:-https://github.com/shunsoco-stack/train-live-map.git}"
+BRANCH="${TRAIN_LIVE_MAP_BRANCH:-main}"
 TARGET_DIR="${TRAIN_LIVE_MAP_DIR:-$HOME/train-live-map}"
 PORT="${PORT:-3000}"
 URL="http://localhost:${PORT}"
