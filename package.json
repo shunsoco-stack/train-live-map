@@ -2,18 +2,19 @@
   "name": "train-live-map",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .vinext"
   },
   "dependencies": {
     "lucide-react": "^0.469.0",
     "maplibre-gl": "^4.7.1",
-    "next": "15.1.6",
-    "react": "19.0.0",
-    "react-dom": "19.0.0"
+    "next": "16.2.6",
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
   },
   "devDependencies": {
     "@types/node": "^20.17.12",

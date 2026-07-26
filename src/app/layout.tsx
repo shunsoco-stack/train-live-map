@@ -1,11 +1,46 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "Train Live Map｜東海道線 東京〜横浜",
-  description:
-    "東海道線 東京〜横浜間の電車位置を地図上で確認できる検証用アプリ(モックデータ)。",
-};
+const title = "Train Live Map｜東海道線 東京〜横浜";
+const description =
+  "東海道線 東京〜横浜間の電車位置を地図上で確認できる検証用アプリ。";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+  const protocol =
+    requestHeaders.get("x-forwarded-proto") ??
+    (host?.startsWith("127.0.0.1") || host?.startsWith("localhost")
+      ? "http"
+      : "https");
+  const origin = host ? `${protocol}://${host}` : "http://127.0.0.1:3000";
+  const imageUrl = new URL("/og.png", origin).toString();
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      images: [
+        {
+          url: imageUrl,
+          width: 1732,
+          height: 907,
+          alt: "Train Live Map — 東海道線 東京〜横浜",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [imageUrl],
+    },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#0a1512",
