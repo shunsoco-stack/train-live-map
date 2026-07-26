@@ -52,6 +52,69 @@ export function coordinateAtStation(stationId: string): LngLat | null {
   return coordinateAtFraction(f);
 }
 
+/** 2 点間の方位角(度)。北=0、東=90、南=180、西=270。 */
+function bearingDegrees(from: LngLat, to: LngLat): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const toDeg = (r: number) => (r * 180) / Math.PI;
+  const [lng1, lat1] = from;
+  const [lng2, lat2] = to;
+  const dLng = toRad(lng2 - lng1);
+  const lat1r = toRad(lat1);
+  const lat2r = toRad(lat2);
+  const y = Math.sin(dLng) * Math.cos(lat2r);
+  const x =
+    Math.cos(lat1r) * Math.sin(lat2r) - Math.sin(lat1r) * Math.cos(lat2r) * Math.cos(dLng);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+/**
+ * 点から線分への距離の二乗(平面近似)。
+ * 対象範囲が狭いため、経度を cos(緯度) で補正した平面座標で十分な精度が得られる。
+ */
+function distanceSqToSegment(p: LngLat, a: LngLat, b: LngLat): number {
+  const k = Math.cos((p[1] * Math.PI) / 180);
+  const px = p[0] * k;
+  const py = p[1];
+  const ax = a[0] * k;
+  const ay = a[1];
+  const bx = b[0] * k;
+  const by = b[1];
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  let t = lenSq === 0 ? 0 : ((px - ax) * dx + (py - ay) * dy) / lenSq;
+  t = Math.min(1, Math.max(0, t));
+  const cx = ax + dx * t;
+  const cy = ay + dy * t;
+  return (px - cx) ** 2 + (py - cy) ** 2;
+}
+
+/**
+ * 指定座標に最も近い線路上の区間から、進行方向の方位角(度)を求める。
+ *
+ * 路線座標は 東京 → 横浜 の順に並んでいるため、その向きが「下り(outbound)」。
+ * reverse=true(上り / inbound)の場合は 180 度反転する。
+ * 列車アイコンの向き(前後)を示すために使用する。
+ */
+export function headingAtPosition(longitude: number, latitude: number, reverse: boolean): number {
+  const { points } = getRouteIndex();
+  if (points.length < 2) return 0;
+
+  const p: LngLat = [longitude, latitude];
+  let bestIndex = 0;
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (let i = 1; i < points.length; i++) {
+    const d = distanceSqToSegment(p, points[i - 1], points[i]);
+    if (d < bestDist) {
+      bestDist = d;
+      bestIndex = i;
+    }
+  }
+
+  const heading = bearingDegrees(points[bestIndex - 1], points[bestIndex]);
+  return reverse ? (heading + 180) % 360 : heading;
+}
+
 /**
  * 2 駅間を ratio(0=from, 1=to)で内挿した座標を求める。
  * どちらかの駅が未知の場合は、既知の駅の座標にフォールバックする。

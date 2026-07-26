@@ -8,6 +8,7 @@ import { STATIONS } from "@/data/stations";
 import { ROUTE_LINE } from "@/data/routeLine";
 import { MAP_STYLE } from "@/features/map/mapStyle";
 import { getStatusAppearance } from "@/lib/trainStatus";
+import { headingAtPosition } from "@/lib/routeGeometry";
 
 interface TrainMapInnerProps {
   trains: TrainLocation[];
@@ -134,13 +135,19 @@ export default function TrainMapInner({
         marker.setLngLat([train.longitude, train.latitude]);
       }
 
+      const directionLabel = train.direction === "inbound" ? "上り" : "下り";
       styleTrainElement(marker.getElement(), {
         color: appearance.color,
         ring: appearance.ring,
         symbol: appearance.symbol,
-        label: `${train.trainNumber} ${appearance.label}`,
+        label: `${train.trainNumber} ${directionLabel} ${train.destination}行 ${appearance.label}`,
         trainNumber: train.trainNumber,
         selected: isSelected,
+        heading: headingAtPosition(
+          train.longitude,
+          train.latitude,
+          train.direction === "inbound",
+        ),
       });
     }
 
@@ -163,7 +170,34 @@ export default function TrainMapInner({
   );
 }
 
-/** 列車マーカーの DOM 要素を生成する(スタイルは styleTrainElement で適用)。 */
+/** 電車アイコン(lucide train-front 相当)の SVG。ヘッダーのアイコンと意匠を揃える。 */
+const TRAIN_ICON_SVG = `
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+     stroke-linecap="round" stroke-linejoin="round" class="h-[15px] w-[15px]" aria-hidden="true">
+  <path d="M8 3.1V7a4 4 0 0 0 8 0V3.1"/>
+  <path d="m9 15-1-1"/><path d="m15 15 1-1"/>
+  <path d="M9 19c-2.8 0-5-2.2-5-5v-4a8 8 0 0 1 16 0v4c0 2.8-2.2 5-5 5Z"/>
+  <path d="m8 19-2 3"/><path d="m16 19 2 3"/>
+</svg>`;
+
+/**
+ * 進行方向を示す矢印(既定で北=上を向く)。方位角ぶん回転させて使う。
+ * 小さく表示しても向きが一目で分かるよう、切り込みのない単純な三角形にする。
+ */
+const HEADING_ARROW_SVG = `
+<svg viewBox="0 0 24 24" fill="currentColor" class="h-full w-full" aria-hidden="true">
+  <path d="M12 3 L20.5 21 L3.5 21 Z"/>
+</svg>`;
+
+/**
+ * 列車マーカーの DOM 要素を生成する(スタイルは styleTrainElement で適用)。
+ *
+ * 構成:
+ *   - 進行方向の矢印(線路に沿った方位角ぶん回転。前後がわかる)
+ *   - 電車アイコン
+ *   - 列車番号
+ *   - 状態記号のバッジ(色に依存せず状態がわかるようにする)
+ */
 function createTrainElement(): HTMLDivElement {
   const el = document.createElement("div");
   el.tabIndex = 0;
@@ -171,9 +205,12 @@ function createTrainElement(): HTMLDivElement {
   // タップ領域を十分に確保
   el.className = "cursor-pointer";
   el.innerHTML = `
-    <div data-pill class="flex items-center gap-1 rounded-full border-2 px-2 py-1 shadow-lg transition-transform">
-      <span data-symbol class="text-[13px] leading-none font-bold"></span>
+    <div data-pill class="relative flex items-center gap-1 rounded-full border-2 pl-1 pr-2 py-1 shadow-lg transition-transform">
+      <span data-heading class="block h-[13px] w-[13px] shrink-0">${HEADING_ARROW_SVG}</span>
+      <span data-icon class="flex shrink-0 items-center">${TRAIN_ICON_SVG}</span>
       <span data-num class="text-[11px] leading-none font-semibold whitespace-nowrap"></span>
+      <span data-badge
+            class="absolute -right-1.5 -top-1.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full border text-[9px] font-bold leading-none"></span>
     </div>
   `;
   return el;
@@ -186,24 +223,36 @@ interface TrainStyleArgs {
   label: string;
   trainNumber: string;
   selected: boolean;
+  /** 進行方向の方位角(度)。北=0。 */
+  heading: number;
 }
 
 function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
   el.setAttribute("aria-label", args.label);
   const pill = el.querySelector<HTMLElement>("[data-pill]");
-  const symbol = el.querySelector<HTMLElement>("[data-symbol]");
+  const heading = el.querySelector<HTMLElement>("[data-heading]");
   const num = el.querySelector<HTMLElement>("[data-num]");
+  const badge = el.querySelector<HTMLElement>("[data-badge]");
+  const text = pillTextColor(args.color);
+
   if (pill) {
     pill.style.backgroundColor = args.color;
     pill.style.borderColor = args.selected ? "#ffffff" : args.ring;
-    pill.style.color = pillTextColor(args.color);
+    pill.style.color = text;
     pill.style.transform = args.selected ? "scale(1.18)" : "scale(1)";
     pill.style.boxShadow = args.selected
       ? "0 0 0 3px rgba(255,255,255,0.5), 0 4px 10px rgba(0,0,0,0.5)"
       : "0 2px 6px rgba(0,0,0,0.5)";
   }
-  if (symbol) symbol.textContent = args.symbol;
+  // 矢印を線路の進行方向へ回転(SVG は北向きなので方位角をそのまま適用)
+  if (heading) heading.style.transform = `rotate(${args.heading}deg)`;
   if (num) num.textContent = args.trainNumber;
+  if (badge) {
+    badge.textContent = args.symbol;
+    badge.style.backgroundColor = args.ring;
+    badge.style.borderColor = args.color;
+    badge.style.color = "#ffffff";
+  }
 }
 
 /** 背景色に応じて文字色(黒/白)を選ぶ。可読性確保。 */
