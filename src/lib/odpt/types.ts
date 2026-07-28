@@ -34,7 +34,7 @@ export interface OdptTrain {
   /** 次駅。駅停車中は null のことがある */
   "odpt:toStation"?: string | null;
   /** 進行方向(例: odpt.RailDirection:Inbound / Outbound) */
-  "odpt:railDirection"?: string;
+  "odpt:railDirection"?: string | null;
   /** 遅延(秒) */
   "odpt:delay"?: number;
   /** 行先(配列) */

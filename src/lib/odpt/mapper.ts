@@ -1,13 +1,13 @@
 import type {
   DataAccuracy,
   ServiceStatus,
-  TrainDirection,
   TrainLocation,
   TrainType,
 } from "@/types/train";
 import type { OdptTrain, OdptTrainInformation } from "@/lib/odpt/types";
 import { getStationById, STATIONS } from "@/data/stations";
 import { coordinateBetweenStations } from "@/lib/routeGeometry";
+import { inferTokaidoDirection } from "@/lib/odpt/direction";
 
 /**
  * ODPT のレスポンスを、UI が扱うドメイン型(TrainLocation / ServiceStatus)へ変換する。
@@ -22,6 +22,7 @@ const ESTIMATED_CRUISE_KMH = 60;
 
 /** 駅間のどの位置に置くか(0=from, 1=to)。進捗情報がないため中間点を採用。 */
 const BETWEEN_STATION_RATIO = 0.5;
+const TOKAIDO_STATION_ORDER = STATIONS.map((station) => station.id);
 
 /** odpt.Station:JR-East.Tokaido.Tokyo → "tokyo"(ローカル駅 id)。未知なら null。 */
 function odptStationToLocalId(odptStationId: string | null | undefined): string | null {
@@ -46,12 +47,6 @@ function mapTrainType(odptType: string | undefined): TrainType {
   return "local";
 }
 
-function mapDirection(odptDirection: string | undefined): TrainDirection {
-  const suffix = odptDirection?.split(".").pop()?.toLowerCase() ?? "";
-  // JR 東日本: Inbound = 上り(東京方面), Outbound = 下り
-  return suffix === "inbound" ? "inbound" : "outbound";
-}
-
 function mapDestination(destinations: string[] | undefined): string {
   if (!destinations || destinations.length === 0) return "—";
   return destinations.map((d) => stationLabel(d)).join("・");
@@ -64,6 +59,7 @@ function mapDestination(destinations: string[] | undefined): string {
 export function odptTrainToTrainLocation(train: OdptTrain): TrainLocation | null {
   const fromLocal = odptStationToLocalId(train["odpt:fromStation"]);
   const toLocal = odptStationToLocalId(train["odpt:toStation"]);
+  const trainNumber = train["odpt:trainNumber"] ?? train["owl:sameAs"]?.split(".").pop() ?? "----";
 
   let latitude: number;
   let longitude: number;
@@ -96,13 +92,21 @@ export function odptTrainToTrainLocation(train: OdptTrain): TrainLocation | null
   // 単一スナップショットでは駅間停止を判定できないため、遅延の有無で状態を近似する
   const status = delayMinutes >= 1 ? "delayed" : "running";
 
-  const trainNumber = train["odpt:trainNumber"] ?? train["owl:sameAs"]?.split(".").pop() ?? "----";
   const id = train["owl:sameAs"] ?? train["@id"] ?? `odpt-${trainNumber}`;
 
   return {
     id,
     trainNumber,
-    direction: mapDirection(train["odpt:railDirection"]),
+    direction: inferTokaidoDirection(
+      {
+        odptDirection: train["odpt:railDirection"],
+        fromStationId: fromLocal,
+        toStationId: toLocal,
+        destinationStationIds: train["odpt:destinationStation"]?.map(odptStationToLocalId),
+        trainNumber,
+      },
+      TOKAIDO_STATION_ORDER,
+    ),
     destination: mapDestination(train["odpt:destinationStation"]),
     trainType: mapTrainType(train["odpt:trainType"]),
     latitude,
