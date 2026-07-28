@@ -22,8 +22,18 @@ import {
  * データ取得・状態管理・レイアウトを担う。
  */
 export function TrainDashboard() {
-  const { trains, serviceStatus, source, fallback, notice, loading, error, lastUpdatedAt, refresh } =
-    useTrainData();
+  const {
+    trains,
+    serviceStatus,
+    source,
+    fallback,
+    notice,
+    loading,
+    error,
+    lastUpdatedAt,
+    dataUpdatedAt,
+    refresh,
+  } = useTrainData();
   const now = useNow(1000);
 
   const [filter, setFilter] = useState<TrainFilterKey>("all");
@@ -49,7 +59,11 @@ export function TrainDashboard() {
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-rail-bg">
-      <AppHeader lastUpdatedAt={lastUpdatedAt} source={source} />
+      <AppHeader
+        lastUpdatedAt={lastUpdatedAt}
+        dataUpdatedAt={dataUpdatedAt}
+        source={source}
+      />
 
       <main className="relative flex-1">
         {/* 地図(画面の中心) */}

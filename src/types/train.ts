@@ -63,6 +63,8 @@ export interface TrainsApiResponse {
   trains: TrainLocation[];
   /** ISO8601 文字列。サーバー側での生成時刻 */
   generatedAt: string;
+  /** ISO8601 文字列。表示中データの dc:date のうち最新の時刻。 */
+  dataUpdatedAt: string;
   isMock: boolean;
   /** 実際に使われたデータ取得元 */
   source: ProviderSource;

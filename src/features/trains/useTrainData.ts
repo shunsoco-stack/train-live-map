@@ -23,6 +23,8 @@ interface TrainDataState {
   error: string | null;
   /** 最終データ更新時刻(クライアントで取得成功した時刻) */
   lastUpdatedAt: Date | null;
+  /** 表示中データ自体の更新時刻。ODPT 利用時は dc:date が元になる。 */
+  dataUpdatedAt: Date | null;
 }
 
 interface UseTrainDataResult extends TrainDataState {
@@ -47,6 +49,7 @@ export function useTrainData(): UseTrainDataResult {
     loading: true,
     error: null,
     lastUpdatedAt: null,
+    dataUpdatedAt: null,
   });
 
   const loadTrains = useCallback(async (signal?: AbortSignal) => {
@@ -62,6 +65,7 @@ export function useTrainData(): UseTrainDataResult {
         loading: false,
         error: null,
         lastUpdatedAt: new Date(),
+        dataUpdatedAt: new Date(data.dataUpdatedAt),
       }));
     } catch (err) {
       if (signal?.aborted) return;

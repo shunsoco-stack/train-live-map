@@ -1,15 +1,21 @@
 import { TrainFront } from "lucide-react";
 import { DataSourceBadge } from "@/components/DataSourceBadge";
+import { DataUsageNotice } from "@/components/DataUsageNotice";
 import { UpdateStatus } from "@/components/UpdateStatus";
 import type { ProviderSource } from "@/types/train";
 
 interface AppHeaderProps {
   lastUpdatedAt: Date | null;
+  dataUpdatedAt: Date | null;
   source: ProviderSource;
 }
 
 /** アプリ上部のヘッダー(アプリ名・サブタイトル・データ元・更新状況)。 */
-export function AppHeader({ lastUpdatedAt, source }: AppHeaderProps) {
+export function AppHeader({
+  lastUpdatedAt,
+  dataUpdatedAt,
+  source,
+}: AppHeaderProps) {
   return (
     <header className="safe-top pointer-events-auto border-b border-rail-border bg-rail-surface/95 px-3 py-2 backdrop-blur">
       <div className="flex items-center justify-between gap-2">
@@ -24,8 +30,12 @@ export function AppHeader({ lastUpdatedAt, source }: AppHeaderProps) {
         </div>
         <DataSourceBadge source={source} />
       </div>
-      <div className="mt-1.5">
-        <UpdateStatus lastUpdatedAt={lastUpdatedAt} />
+      <div className="mt-1.5 flex items-center justify-between gap-2">
+        <UpdateStatus
+          lastUpdatedAt={lastUpdatedAt}
+          dataUpdatedAt={dataUpdatedAt}
+        />
+        <DataUsageNotice source={source} />
       </div>
     </header>
   );

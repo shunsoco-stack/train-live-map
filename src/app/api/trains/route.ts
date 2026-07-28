@@ -12,10 +12,19 @@ export async function GET() {
   const start = Date.now();
   try {
     const { trains, isMock, source, fallback, notice } = await trainLocationService.getTrains();
+    const generatedAt = new Date().toISOString();
+    const latestTrainTimestamp = trains.reduce<string | null>((latest, train) => {
+      const timestamp = Date.parse(train.lastUpdatedAt);
+      if (Number.isNaN(timestamp)) return latest;
+      if (!latest || timestamp > Date.parse(latest)) return train.lastUpdatedAt;
+      return latest;
+    }, null);
+
     log.info("応答", { count: trains.length, source, fallback, durationMs: Date.now() - start });
     const body: TrainsApiResponse = {
       trains,
-      generatedAt: new Date().toISOString(),
+      generatedAt,
+      dataUpdatedAt: latestTrainTimestamp ?? generatedAt,
       isMock,
       source,
       fallback,
