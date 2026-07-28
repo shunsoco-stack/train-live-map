@@ -55,7 +55,7 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
       className="fixed inset-0 z-30 flex items-end justify-center"
       role="dialog"
       aria-modal="true"
-      aria-label={`${train.trainNumber} の詳細`}
+      aria-label={`${train.lineName} ${train.destination}行の詳細`}
     >
       {/* 背景 */}
       <button
@@ -94,9 +94,7 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
               <p className="text-base font-bold text-rail-text">
                 {trainTypeLabelJa(train.trainType)}・{train.destination}行
               </p>
-              <p className="text-xs text-rail-muted">
-                {train.trainNumber}／{directionLabel}
-              </p>
+              <p className="text-xs text-rail-muted">{directionLabel}</p>
             </div>
           </div>
           <button
@@ -140,9 +138,6 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
           </DetailItem>
           <DetailItem icon={DirectionIcon} label="上り・下り">
             {directionLabel}
-          </DetailItem>
-          <DetailItem icon={Ticket} label="列車番号">
-            {train.trainNumber}
           </DetailItem>
           <DetailItem icon={Clock} label="遅延時間">
             {train.delayMinutes > 0 ? `${train.delayMinutes}分` : "なし"}

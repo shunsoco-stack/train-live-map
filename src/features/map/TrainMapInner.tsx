@@ -344,8 +344,7 @@ export default function TrainMapInner({
         color: appearance.color,
         ring: appearance.ring,
         symbol: appearance.symbol,
-        label: `${train.lineName} ${train.trainNumber} ${directionLabel} ${train.destination}行 ${appearance.label}`,
-        trainNumber: train.trainNumber,
+        label: `${train.lineName} ${directionLabel} ${train.destination}行 ${appearance.label}`,
         lineColor: train.lineColor,
         direction: train.direction,
         selected: isSelected,
@@ -373,14 +372,20 @@ export default function TrainMapInner({
   );
 }
 
-/** 電車アイコン(lucide train-front 相当)の SVG。ヘッダーのアイコンと意匠を揃える。 */
+/** 小さな表示でも表情が分かる、丸みのある正面向き電車アイコン。 */
 const TRAIN_ICON_SVG = `
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-     stroke-linecap="round" stroke-linejoin="round" class="h-[15px] w-[15px]" aria-hidden="true">
-  <path d="M8 3.1V7a4 4 0 0 0 8 0V3.1"/>
-  <path d="m9 15-1-1"/><path d="m15 15 1-1"/>
-  <path d="M9 19c-2.8 0-5-2.2-5-5v-4a8 8 0 0 1 16 0v4c0 2.8-2.2 5-5 5Z"/>
-  <path d="m8 19-2 3"/><path d="m16 19 2 3"/>
+<svg viewBox="0 0 32 32" class="h-[26px] w-[26px]" aria-hidden="true">
+  <path d="M9 4.5h14c3 0 5 2.2 5 5v12.2c0 3.2-2.5 5.8-5.7 5.8H9.7C6.5 27.5 4 24.9 4 21.7V9.5c0-2.8 2-5 5-5Z"
+        fill="#fffaf7" stroke="#493b38" stroke-width="1.5"/>
+  <rect x="7" y="7.5" width="18" height="10" rx="4" fill="#dff4ff" stroke="#493b38" stroke-width="1.2"/>
+  <circle cx="11.5" cy="12.4" r="1.35" fill="#493b38"/>
+  <circle cx="20.5" cy="12.4" r="1.35" fill="#493b38"/>
+  <path d="M13.2 14.6c.8.9 1.7 1.3 2.8 1.3s2-.4 2.8-1.3"
+        fill="none" stroke="#493b38" stroke-width="1.2" stroke-linecap="round"/>
+  <circle cx="9" cy="21.5" r="2" fill="#ffafc2"/>
+  <circle cx="23" cy="21.5" r="2" fill="#ffafc2"/>
+  <path d="M12 22.2h8" stroke="#493b38" stroke-width="1.4" stroke-linecap="round"/>
+  <path d="m9 27.2-2 2.3M23 27.2l2 2.3" stroke="#493b38" stroke-width="1.7" stroke-linecap="round"/>
 </svg>`;
 
 /**
@@ -397,8 +402,7 @@ const HEADING_ARROW_SVG = `
  *
  * 構成:
  *   - 進行方向の矢印(線路に沿った方位角ぶん回転。前後がわかる)
- *   - 電車アイコン
- *   - 列車番号
+ *   - 表情のある電車アイコン
  *   - 状態記号のバッジ(色に依存せず状態がわかるようにする)
  */
 function createTrainElement(): HTMLDivElement {
@@ -408,11 +412,10 @@ function createTrainElement(): HTMLDivElement {
   // タップ領域を十分に確保
   el.className = "cursor-pointer";
   el.innerHTML = `
-    <div data-pill class="relative flex items-center gap-1 rounded-full border-2 pl-1 pr-2 py-1 shadow-lg transition-transform">
+    <div data-pill class="relative flex items-center gap-1 rounded-full border-2 p-1 shadow-lg transition-transform">
       <span data-heading
             class="flex h-[19px] w-[19px] shrink-0 items-center justify-center rounded-full bg-white/95 p-[3px] text-black shadow-sm">${HEADING_ARROW_SVG}</span>
-      <span data-icon class="flex shrink-0 items-center">${TRAIN_ICON_SVG}</span>
-      <span data-num class="text-[11px] leading-none font-semibold whitespace-nowrap"></span>
+      <span data-icon class="flex shrink-0 items-center drop-shadow-sm">${TRAIN_ICON_SVG}</span>
       <span data-line
             class="pointer-events-none absolute inset-x-2 bottom-0 h-[3px] rounded-full"></span>
       <span data-badge
@@ -429,7 +432,6 @@ interface TrainStyleArgs {
   ring: string;
   symbol: string;
   label: string;
-  trainNumber: string;
   lineColor: string;
   direction: TrainLocation["direction"];
   selected: boolean;
@@ -441,7 +443,6 @@ function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
   el.setAttribute("aria-label", args.label);
   const pill = el.querySelector<HTMLElement>("[data-pill]");
   const heading = el.querySelector<HTMLElement>("[data-heading]");
-  const num = el.querySelector<HTMLElement>("[data-num]");
   const line = el.querySelector<HTMLElement>("[data-line]");
   const badge = el.querySelector<HTMLElement>("[data-badge]");
   const direction = el.querySelector<HTMLElement>("[data-direction]");
@@ -458,7 +459,6 @@ function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
   }
   // 矢印を線路の進行方向へ回転(SVG は北向きなので方位角をそのまま適用)
   if (heading) heading.style.transform = `rotate(${args.heading}deg)`;
-  if (num) num.textContent = args.trainNumber;
   // マーカー本体は路線カラー、下端の細線と右上バッジは運行状態カラー。
   // 路線の識別と、遅延・停止などの状態識別を同時に保つ。
   if (line) line.style.backgroundColor = args.color;
