@@ -6,9 +6,12 @@ import {
   Layers3,
   Loader2,
   Search,
+  Star,
   X,
 } from "lucide-react";
 import type { RailwayFilterOption } from "@/types/railway";
+
+const FAVORITE_LINES_STORAGE_KEY = "train-live-map:favorite-lines";
 
 interface RailwayFilterSheetProps {
   options: RailwayFilterOption[];
@@ -25,6 +28,41 @@ export function RailwayFilterSheet({
 }: RailwayFilterSheetProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [favoritesLoaded, setFavoritesLoaded] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(FAVORITE_LINES_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as unknown;
+        if (Array.isArray(parsed)) {
+          const knownIds = new Set(options.map((option) => option.id));
+          setFavoriteIds(
+            new Set(
+              parsed.filter(
+                (id): id is string =>
+                  typeof id === "string" && knownIds.has(id),
+              ),
+            ),
+          );
+        }
+      }
+    } catch {
+      // 保存値が壊れている場合は、お気に入りなしで開始する。
+    } finally {
+      setFavoritesLoaded(true);
+    }
+  }, [options]);
+
+  useEffect(() => {
+    if (!favoritesLoaded) return;
+    window.localStorage.setItem(
+      FAVORITE_LINES_STORAGE_KEY,
+      JSON.stringify([...favoriteIds]),
+    );
+  }, [favoriteIds, favoritesLoaded]);
 
   useEffect(() => {
     if (!open) return;
@@ -45,13 +83,13 @@ export function RailwayFilterSheet({
 
   const grouped = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("ja");
-    const filtered = normalizedQuery
-      ? options.filter((option) =>
-          [option.name, option.category, ...option.aliases].some((value) =>
-            value.toLocaleLowerCase("ja").includes(normalizedQuery),
-          ),
-        )
-      : options;
+    const filtered = options.filter((option) => {
+      if (favoritesOnly && !favoriteIds.has(option.id)) return false;
+      if (!normalizedQuery) return true;
+      return [option.name, option.category, ...option.aliases].some((value) =>
+        value.toLocaleLowerCase("ja").includes(normalizedQuery),
+      );
+    });
     const groups = new Map<string, RailwayFilterOption[]>();
     for (const option of filtered) {
       const group = groups.get(option.category) ?? [];
@@ -59,13 +97,22 @@ export function RailwayFilterSheet({
       groups.set(option.category, group);
     }
     return [...groups.entries()];
-  }, [options, query]);
+  }, [favoriteIds, favoritesOnly, options, query]);
 
   const toggle = (id: string) => {
     const next = new Set(visibleIds);
     if (next.has(id)) next.delete(id);
     else next.add(id);
     onChange(next);
+  };
+
+  const toggleFavorite = (id: string) => {
+    setFavoriteIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   return (
@@ -136,6 +183,27 @@ export function RailwayFilterSheet({
                 />
               </div>
 
+              <button
+                type="button"
+                aria-pressed={favoritesOnly}
+                onClick={() => setFavoritesOnly((current) => !current)}
+                className={`mt-2 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border px-3 text-sm font-semibold transition ${
+                  favoritesOnly
+                    ? "border-yellow-300 bg-yellow-300/15 text-yellow-200"
+                    : "border-rail-border bg-black/20 text-rail-muted hover:border-yellow-300/70"
+                }`}
+              >
+                <Star
+                  className="h-4 w-4"
+                  fill={favoritesOnly ? "currentColor" : "none"}
+                  aria-hidden
+                />
+                <span>お気に入り</span>
+                <span className="rounded-full bg-black/25 px-2 py-0.5 text-xs tabular-nums">
+                  {favoriteIds.size}
+                </span>
+              </button>
+
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -172,50 +240,78 @@ export function RailwayFilterSheet({
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {categoryOptions.map((option) => {
                       const selected = visibleIds.has(option.id);
+                      const favorite = favoriteIds.has(option.id);
                       const unavailable = !option.available;
                       const note =
                         option.coverageNote ??
                         (unavailable ? "現在は位置情報を取得できません" : null);
 
                       return (
-                        <button
+                        <div
                           key={option.id}
-                          type="button"
-                          disabled={unavailable}
-                          aria-pressed={selected}
-                          onClick={() => toggle(option.id)}
-                          className={`flex min-h-12 items-center gap-3 rounded-xl border px-3 py-2 text-left transition ${
+                          className={`flex min-h-12 overflow-hidden rounded-xl border transition ${
                             selected
                               ? "border-orange-300 bg-orange-400/15"
                               : "border-rail-border bg-black/15"
-                          } ${unavailable ? "cursor-not-allowed opacity-45" : "hover:border-orange-300/70"}`}
+                          } hover:border-orange-300/70`}
                         >
-                          <span
-                            className="h-3 w-3 shrink-0 rounded-full ring-2 ring-black/30"
-                            style={{ backgroundColor: option.color }}
-                            aria-hidden
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-semibold text-rail-text">
-                              {option.name}
-                            </span>
-                            {note && (
-                              <span className="mt-0.5 block text-[10px] leading-tight text-rail-muted">
-                                {note}
-                              </span>
-                            )}
-                          </span>
-                          <span
-                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
-                              selected
-                                ? "border-orange-300 bg-rail-accent text-black"
-                                : "border-rail-border text-transparent"
+                          <button
+                            type="button"
+                            disabled={unavailable}
+                            aria-pressed={selected}
+                            onClick={() => toggle(option.id)}
+                            className={`flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left ${
+                              unavailable
+                                ? "cursor-not-allowed opacity-45"
+                                : ""
                             }`}
-                            aria-hidden
                           >
-                            <Check className="h-3.5 w-3.5" />
-                          </span>
-                        </button>
+                            <span
+                              className="h-3 w-3 shrink-0 rounded-full ring-2 ring-black/30"
+                              style={{ backgroundColor: option.color }}
+                              aria-hidden
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-semibold text-rail-text">
+                                {option.name}
+                              </span>
+                              {note && (
+                                <span className="mt-0.5 block text-[10px] leading-tight text-rail-muted">
+                                  {note}
+                                </span>
+                              )}
+                            </span>
+                            <span
+                              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+                                selected
+                                  ? "border-orange-300 bg-rail-accent text-black"
+                                  : "border-rail-border text-transparent"
+                              }`}
+                              aria-hidden
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            aria-pressed={favorite}
+                            aria-label={`${option.name}をお気に入り${
+                              favorite ? "から解除" : "に登録"
+                            }`}
+                            onClick={() => toggleFavorite(option.id)}
+                            className={`flex w-12 shrink-0 items-center justify-center border-l transition ${
+                              favorite
+                                ? "border-yellow-300/30 bg-yellow-300/10 text-yellow-300"
+                                : "border-rail-border text-rail-muted hover:bg-white/5 hover:text-yellow-200"
+                            }`}
+                          >
+                            <Star
+                              className="h-5 w-5"
+                              fill={favorite ? "currentColor" : "none"}
+                              aria-hidden
+                            />
+                          </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -224,7 +320,9 @@ export function RailwayFilterSheet({
 
               {grouped.length === 0 && (
                 <p className="py-8 text-center text-sm text-rail-muted">
-                  該当する路線がありません。
+                  {favoritesOnly && favoriteIds.size === 0
+                    ? "路線右端の☆からお気に入りを登録できます。"
+                    : "該当する路線がありません。"}
                 </p>
               )}
             </div>
@@ -234,4 +332,3 @@ export function RailwayFilterSheet({
     </>
   );
 }
-
