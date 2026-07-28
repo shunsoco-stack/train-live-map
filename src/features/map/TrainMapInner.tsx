@@ -318,6 +318,10 @@ export default function TrainMapInner({
         label: `${train.lineName} ${directionLabel} ${train.destination}行 ${appearance.label}`,
         lineColor: train.lineColor,
         direction: train.direction,
+        delayMinutes:
+          train.status === "suspended"
+            ? 0
+            : Math.max(0, Math.round(train.delayMinutes)),
         selected: isSelected,
       });
     }
@@ -375,6 +379,12 @@ function createTrainElement(): HTMLDivElement {
   el.className = "cursor-pointer";
   el.innerHTML = `
     <div data-pill class="relative flex h-[40px] w-[40px] items-center justify-center transition-transform">
+      <span data-delay
+            class="pointer-events-none absolute bottom-[calc(100%-1px)] left-1/2 z-10 hidden -translate-x-1/2 items-center justify-center rounded-full border-2 border-white bg-[#e84462] px-2 py-1 text-[11px] font-black leading-none text-white whitespace-nowrap shadow-[0_2px_5px_rgba(0,0,0,0.38)]">
+        <span data-delay-text></span>
+        <span aria-hidden="true"
+              class="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-[5px] rotate-45 border-b-2 border-r-2 border-white bg-[#e84462]"></span>
+      </span>
       <span data-icon class="flex shrink-0 items-center">${TRAIN_ICON_SVG}</span>
       <span data-badge
             class="absolute -right-1.5 -top-1.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full border text-[9px] font-bold leading-none"></span>
@@ -392,15 +402,23 @@ interface TrainStyleArgs {
   label: string;
   lineColor: string;
   direction: TrainLocation["direction"];
+  delayMinutes: number;
   selected: boolean;
 }
 
 function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
-  el.setAttribute("aria-label", args.label);
+  el.setAttribute(
+    "aria-label",
+    args.delayMinutes > 0
+      ? `${args.label} ${args.delayMinutes}分遅れ`
+      : args.label,
+  );
   const pill = el.querySelector<HTMLElement>("[data-pill]");
   const trainBody = el.querySelector<SVGElement>("[data-train-body]");
   const badge = el.querySelector<HTMLElement>("[data-badge]");
   const direction = el.querySelector<HTMLElement>("[data-direction]");
+  const delay = el.querySelector<HTMLElement>("[data-delay]");
+  const delayText = el.querySelector<HTMLElement>("[data-delay-text]");
 
   if (pill) {
     pill.style.transform = args.selected ? "scale(1.18)" : "scale(1)";
@@ -409,6 +427,11 @@ function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
       : "drop-shadow(0 3px 3px rgba(0,0,0,0.48))";
   }
   if (trainBody) trainBody.style.fill = args.lineColor;
+  if (delay && delayText) {
+    delay.style.display = args.delayMinutes > 0 ? "flex" : "none";
+    delayText.textContent =
+      args.delayMinutes > 0 ? `+${args.delayMinutes}分` : "";
+  }
   if (direction) {
     const isInbound = args.direction === "inbound";
     direction.textContent = isInbound ? "↑ 上り" : "↓ 下り";
