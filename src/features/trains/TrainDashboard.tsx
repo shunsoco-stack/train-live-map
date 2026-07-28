@@ -6,6 +6,7 @@ import { AdSenseBanner } from "@/components/AdSenseBanner";
 import { AppHeader } from "@/components/AppHeader";
 import { DataSourceNotice } from "@/components/DataSourceNotice";
 import { ErrorNotice } from "@/components/ErrorNotice";
+import { defaultVisibleRailwayIds } from "@/data/railwayCatalog";
 import { MapPanel } from "@/features/map/MapPanel";
 import { RailwayFilterSheet } from "@/features/railways/RailwayFilterSheet";
 import { useRailwayNetwork } from "@/features/railways/useRailwayNetwork";
@@ -19,6 +20,11 @@ import {
   TRAIN_FILTERS,
   type TrainFilterKey,
 } from "@/lib/trainStatus";
+
+const VISIBLE_LINES_STORAGE_KEY = "train-live-map:visible-lines";
+const SELECTION_DEFAULT_VERSION_KEY =
+  "train-live-map:visible-lines-default-version";
+const SELECTION_DEFAULT_VERSION = "2";
 
 /**
  * アプリ全体を束ねるクライアントコンポーネント。
@@ -58,14 +64,13 @@ export function TrainDashboard() {
         .filter((option) => option.available)
         .map((option) => option.id),
     );
+    const defaultIds = defaultVisibleRailwayIds(railwayOptions);
 
-    // 500本以上を一度に描画するとスマホでは見づらいため、初回は東海道線だけ。
+    // 500本以上を一度に描画するとスマホでは重いため、初回は各方面の先頭だけ。
     // 「すべて表示」から全路線へ即座に切り替えられる。
-    let next = availableIds.has("tokaido")
-      ? new Set(["tokaido"])
-      : new Set([...availableIds].slice(0, 1));
+    let next = defaultIds;
     try {
-      const stored = window.localStorage.getItem("train-live-map:visible-lines");
+      const stored = window.localStorage.getItem(VISIBLE_LINES_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as unknown;
         if (Array.isArray(parsed)) {
@@ -75,11 +80,25 @@ export function TrainDashboard() {
               typeof id === "string" && availableIds.has(id),
             ),
           );
-          next = restored;
+          const savedDefaultVersion = window.localStorage.getItem(
+            SELECTION_DEFAULT_VERSION_KEY,
+          );
+          const isLegacyAllSelection =
+            savedDefaultVersion !== SELECTION_DEFAULT_VERSION &&
+            availableIds.size > defaultIds.size &&
+            restored.size === availableIds.size;
+
+          // 旧版の初期値「全路線」だけを軽量な新初期値へ移行する。
+          // 空選択や個別に選んだ組み合わせはそのまま尊重する。
+          next = isLegacyAllSelection ? defaultIds : restored;
         }
       }
+      window.localStorage.setItem(
+        SELECTION_DEFAULT_VERSION_KEY,
+        SELECTION_DEFAULT_VERSION,
+      );
     } catch {
-      // 保存値が壊れている場合は、利用可能な路線をすべて表示する。
+      // 保存値が壊れている場合は、各方面の先頭路線で開始する。
     }
 
     setVisibleLineIds(next);
@@ -89,7 +108,7 @@ export function TrainDashboard() {
   useEffect(() => {
     if (!railwaySelectionReady.current) return;
     window.localStorage.setItem(
-      "train-live-map:visible-lines",
+      VISIBLE_LINES_STORAGE_KEY,
       JSON.stringify([...visibleLineIds]),
     );
   }, [visibleLineIds]);

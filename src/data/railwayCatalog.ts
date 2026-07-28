@@ -121,10 +121,31 @@ export function findRailwayCatalogLine(
 export function railwayFilterOptions(
   availableIds: ReadonlySet<string>,
 ): RailwayFilterOption[] {
-  return RAILWAY_CATALOG.map((item) => ({
-    ...item,
-    available: availableIds.has(item.id),
-  }));
+  return RAILWAY_CATALOG
+    .filter((item) => item.coverage !== "unavailable")
+    .map((item) => ({
+      ...item,
+      available: availableIds.has(item.id),
+    }));
+}
+
+/**
+ * 初回表示は、利用可能な路線を方面ごとに1件だけ選ぶ。
+ * カタログ順がそのまま各方面の表示優先順になる。
+ */
+export function defaultVisibleRailwayIds(
+  options: readonly RailwayFilterOption[],
+): Set<string> {
+  const selectedCategories = new Set<string>();
+  const selectedIds = new Set<string>();
+
+  for (const option of options) {
+    if (!option.available || selectedCategories.has(option.category)) continue;
+    selectedCategories.add(option.category);
+    selectedIds.add(option.id);
+  }
+
+  return selectedIds;
 }
 
 export function getRailwayCatalogLine(
@@ -132,4 +153,3 @@ export function getRailwayCatalogLine(
 ): RailwayCatalogLine | undefined {
   return RAILWAY_CATALOG.find((item) => item.id === id);
 }
-
