@@ -4,9 +4,9 @@ import Script from "next/script";
 import { adsenseClientId } from "@/lib/adsense";
 import "./globals.css";
 
-const title = "Train Live Map｜東海道線 東京〜横浜";
+const title = "Train Live Map｜関東のJR在来線";
 const description =
-  "東海道線 東京〜横浜間の電車位置を地図上で確認できる検証用アプリ。";
+  "関東のJR在来線の列車位置と運行状況を地図上で確認できるWebアプリ。";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -22,6 +22,16 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title,
     description,
+    applicationName: "Train Live Map",
+    manifest: "/manifest.webmanifest",
+    appleWebApp: {
+      capable: true,
+      title: "Train Live Map",
+      statusBarStyle: "black-translucent",
+    },
+    formatDetection: {
+      telephone: false,
+    },
     other: adsenseClientId
       ? { "google-adsense-account": adsenseClientId }
       : undefined,
@@ -34,7 +44,7 @@ export async function generateMetadata(): Promise<Metadata> {
           url: imageUrl,
           width: 1732,
           height: 907,
-          alt: "Train Live Map — 東海道線 東京〜横浜",
+          alt: "Train Live Map — 関東のJR在来線",
         },
       ],
     },
