@@ -21,7 +21,7 @@ export interface StatusAppearance {
 }
 
 const APPEARANCE: Record<StatusLevel, Omit<StatusAppearance, "level">> = {
-  running: { color: "#22c55e", ring: "#065f46", label: "走行中", symbol: "▶" },
+  running: { color: "#f68b1e", ring: "#7c2d12", label: "走行中", symbol: "▶" },
   warn: { color: "#eab308", ring: "#713f12", label: "停止(注意)", symbol: "‖" },
   danger: { color: "#ef4444", ring: "#7f1d1d", label: "停止(長時間)", symbol: "■" },
   suspended: { color: "#111827", ring: "#ef4444", label: "運転見合わせ", symbol: "✕" },

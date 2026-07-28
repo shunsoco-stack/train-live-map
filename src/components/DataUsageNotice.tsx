@@ -35,7 +35,7 @@ export function DataUsageNotice({ source }: DataUsageNoticeProps) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-rail-border bg-rail-bg/60 px-2 py-1 text-[11px] font-medium text-rail-muted transition hover:border-emerald-700 hover:text-rail-text focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-rail-border bg-rail-bg/60 px-2 py-1 text-[11px] font-medium text-rail-muted transition hover:border-orange-600 hover:text-rail-text focus:outline-none focus:ring-2 focus:ring-orange-500"
         aria-haspopup="dialog"
       >
         <Info className="h-3 w-3" aria-hidden />
@@ -58,7 +58,7 @@ export function DataUsageNotice({ source }: DataUsageNoticeProps) {
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold text-emerald-300">
+                  <p className="text-xs font-semibold text-orange-300">
                     ODPTデータ利用表示
                   </p>
                   <h2
@@ -71,7 +71,7 @@ export function DataUsageNotice({ source }: DataUsageNoticeProps) {
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="rounded-lg p-2 text-rail-muted transition hover:bg-rail-bg hover:text-rail-text focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="rounded-lg p-2 text-rail-muted transition hover:bg-rail-bg hover:text-rail-text focus:outline-none focus:ring-2 focus:ring-orange-500"
                   aria-label="閉じる"
                 >
                   <X className="h-5 w-5" aria-hidden />
@@ -100,7 +100,7 @@ export function DataUsageNotice({ source }: DataUsageNoticeProps) {
                 </p>
                 <a
                   href={`mailto:${CONTACT_EMAIL}`}
-                  className="mt-1 inline-flex items-center gap-2 break-all text-sm font-medium text-emerald-300 underline decoration-emerald-700 underline-offset-4 hover:text-emerald-200"
+                  className="mt-1 inline-flex items-center gap-2 break-all text-sm font-medium text-orange-300 underline decoration-orange-700 underline-offset-4 hover:text-orange-200"
                 >
                   <Mail className="h-4 w-4 shrink-0" aria-hidden />
                   {CONTACT_EMAIL}

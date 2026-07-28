@@ -73,14 +73,14 @@ export default function TrainMapInner({
         type: "line",
         source: "route",
         layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": "#052e22", "line-width": 8 },
+        paint: { "line-color": "#7c2d12", "line-width": 8 },
       });
       map.addLayer({
         id: "route-line",
         type: "line",
         source: "route",
         layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": "#10b981", "line-width": 4 },
+        paint: { "line-color": "#f68b1e", "line-width": 4 },
       });
 
       // 駅マーカー(HTML マーカーで駅名ラベルも表示)
@@ -88,8 +88,8 @@ export default function TrainMapInner({
         const el = document.createElement("div");
         el.className = "flex flex-col items-center pointer-events-none select-none";
         el.innerHTML = `
-          <span class="block h-3 w-3 rounded-full border-2 border-emerald-300 bg-rail-bg shadow"></span>
-          <span class="mt-1 rounded bg-black/70 px-1.5 py-0.5 text-[11px] font-medium leading-none text-emerald-100 whitespace-nowrap">${station.name}</span>
+          <span class="block h-3 w-3 rounded-full border-2 border-orange-300 bg-rail-bg shadow"></span>
+          <span class="mt-1 rounded bg-black/70 px-1.5 py-0.5 text-[11px] font-medium leading-none text-orange-100 whitespace-nowrap">${station.name}</span>
         `;
         new maplibregl.Marker({ element: el, anchor: "top" })
           .setLngLat([station.longitude, station.latitude])
@@ -257,6 +257,9 @@ function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
 
 /** 背景色に応じて文字色(黒/白)を選ぶ。可読性確保。 */
 function pillTextColor(bg: string): string {
-  // 明るい黄色系のみ黒文字、それ以外は白
-  return bg.toLowerCase() === "#eab308" ? "#1a1a1a" : "#ffffff";
+  // 明るいオレンジ・黄色系は黒文字、それ以外は白
+  const normalized = bg.toLowerCase();
+  return normalized === "#f68b1e" || normalized === "#eab308"
+    ? "#1a1a1a"
+    : "#ffffff";
 }

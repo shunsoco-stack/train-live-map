@@ -9,18 +9,18 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // 鉄道アプリらしい落ち着いたダークテーマ
+        // 東海道線のオレンジが映える、暖色系のダークテーマ
         rail: {
-          bg: "#0a1512",
-          surface: "#0f1f1a",
-          border: "#1c332b",
-          accent: "#10b981", // emerald
-          "accent-dark": "#065f46", // dark green
-          text: "#e6f2ed",
-          muted: "#8fae9f",
+          bg: "#1a1008",
+          surface: "#24170d",
+          border: "#4a2f1a",
+          accent: "#f68b1e", // 東海道線オレンジ
+          "accent-dark": "#7c2d12",
+          text: "#fff7ed",
+          muted: "#c7a98b",
         },
         status: {
-          running: "#22c55e",
+          running: "#f68b1e",
           warn: "#eab308",
           danger: "#ef4444",
           suspended: "#7f1d1d",

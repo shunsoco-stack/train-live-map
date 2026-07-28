@@ -20,7 +20,7 @@ export function AppHeader({
     <header className="safe-top pointer-events-auto border-b border-rail-border bg-rail-surface/95 px-3 py-2 backdrop-blur">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-rail-accent-dark text-emerald-200">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-rail-accent-dark text-orange-100">
             <TrainFront className="h-5 w-5" aria-hidden />
           </span>
           <div className="leading-tight">

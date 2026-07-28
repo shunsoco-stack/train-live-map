@@ -15,7 +15,7 @@ export function DataSourceBadge({
   if (source === "odpt") {
     return (
       <span
-        className={`inline-flex items-center gap-1 rounded-full border border-emerald-400/50 bg-emerald-400/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-300 ${className}`}
+        className={`inline-flex items-center gap-1 rounded-full border border-orange-400/60 bg-orange-400/10 px-2 py-0.5 text-[11px] font-semibold text-orange-200 ${className}`}
         title="ODPT の実データを表示中。位置は駅間からの推定を含みます。"
       >
         <Radio className="h-3 w-3" aria-hidden />
