@@ -15,6 +15,10 @@ body {
   margin: 0;
   background-color: #1a1008;
   color: #fff7ed;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN",
+    "Yu Gothic UI", "Noto Sans JP", sans-serif;
+  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
   /* iPhone Safari のアドレスバー変動に強い高さ指定の補助 */
   overscroll-behavior: none;
@@ -28,7 +32,98 @@ body {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
+.app-material {
+  background: rgba(36, 23, 13, 0.88);
+  box-shadow: 0 8px 28px rgba(26, 16, 8, 0.18);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+}
+
+.app-sheet {
+  background: rgba(36, 23, 13, 0.96);
+  border-color: rgba(246, 139, 30, 0.24);
+  box-shadow: 0 -16px 48px rgba(14, 8, 3, 0.42);
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  will-change: transform, opacity;
+}
+
+.pressable {
+  touch-action: manipulation;
+  transition:
+    transform 100ms ease-out,
+    color 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.pressable:active {
+  transform: scale(0.97);
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.train-marker:hover,
+.train-marker:focus-visible {
+  z-index: 30 !important;
+}
+
+.train-marker:focus-visible [data-pill] {
+  border-radius: 0.75rem;
+  outline: 3px solid rgba(255, 255, 255, 0.95);
+  outline-offset: 3px;
+}
+
+.train-marker:active [data-icon] {
+  transform: scale(0.94);
+}
+
+.train-marker [data-icon] {
+  transition: transform 100ms ease-out;
+}
+
+@keyframes sheet-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 2.25rem, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes scrim-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-sheet-enter {
+  animation: sheet-enter 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-scrim-enter {
+  animation: scrim-enter 180ms ease-out both;
+}
+
 /* MapLibre のコントロールをダークテーマに馴染ませる */
+.maplibregl-ctrl-top-right {
+  top: 3.5rem !important;
+  right: 0.25rem !important;
+}
+
 .maplibregl-ctrl-group {
   background: rgba(36, 23, 13, 0.92) !important;
   border: 1px solid #4a2f1a !important;
@@ -47,4 +142,33 @@ body {
 }
 .maplibregl-ctrl-attrib a {
   color: #c7a98b !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-sheet-enter,
+  .animate-scrim-enter {
+    animation: none !important;
+  }
+
+  .pressable,
+  .train-marker [data-icon] {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .app-material,
+  .app-sheet {
+    background: #24170d;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .app-material,
+  .app-sheet {
+    background: #1a1008;
+    border-color: #f6a94f;
+  }
 }

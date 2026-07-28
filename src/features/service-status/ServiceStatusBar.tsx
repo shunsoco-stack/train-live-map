@@ -34,11 +34,14 @@ export function ServiceStatusBar({ serviceStatus }: ServiceStatusBarProps) {
   if (!serviceStatus) return null;
   const style = SEVERITY_STYLE[serviceStatus.severity];
   const Icon = style.icon;
+  const normal = serviceStatus.severity === "normal";
 
   return (
     <div
       role="status"
-      className={`pointer-events-auto flex items-start gap-2 rounded-lg border bg-rail-surface/95 px-3 py-2 text-xs text-rail-text shadow-lg backdrop-blur ${style.border}`}
+      className={`app-material pointer-events-auto flex max-w-full items-start gap-2 border px-3 py-2 text-xs font-medium text-rail-text ${
+        normal ? "self-start rounded-full" : "w-full rounded-xl"
+      } ${style.border}`}
     >
       <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${style.accent}`} aria-hidden />
       <p className="leading-snug">

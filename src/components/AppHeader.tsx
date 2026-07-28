@@ -17,20 +17,24 @@ export function AppHeader({
   source,
 }: AppHeaderProps) {
   return (
-    <header className="safe-top pointer-events-auto border-b border-rail-border bg-rail-surface/95 px-3 py-2 backdrop-blur">
+    <header className="app-material safe-top pointer-events-auto relative z-20 border-b border-rail-border/70 px-3 py-1.5">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-rail-accent-dark text-orange-100">
-            <TrainFront className="h-5 w-5" aria-hidden />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.65rem] bg-rail-accent-dark text-orange-100 shadow-inner shadow-orange-200/10">
+            <TrainFront className="h-[1.125rem] w-[1.125rem]" aria-hidden />
           </span>
           <div className="leading-tight">
-            <h1 className="text-base font-bold text-rail-text">Train Live Map</h1>
-            <p className="text-[11px] text-rail-muted">関東のJR在来線</p>
+            <h1 className="text-[0.95rem] font-bold tracking-[-0.015em] text-rail-text">
+              Train Live Map
+            </h1>
+            <p className="text-[0.6875rem] font-medium tracking-[0.015em] text-rail-muted">
+              関東のJR在来線
+            </p>
           </div>
         </div>
         <DataSourceBadge source={source} />
       </div>
-      <div className="mt-1.5 flex items-center justify-between gap-2">
+      <div className="mt-1 flex min-h-9 items-center justify-between gap-2">
         <UpdateStatus
           lastUpdatedAt={lastUpdatedAt}
           dataUpdatedAt={dataUpdatedAt}

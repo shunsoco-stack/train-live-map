@@ -32,10 +32,14 @@ export function UpdateStatus({
     : null;
 
   return (
-    <div className="flex items-center gap-1.5 text-[11px] text-rail-muted">
+    <div
+      className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium tracking-[0.01em] text-rail-muted"
+      role="status"
+      aria-live="off"
+    >
       <RefreshCw className="h-3 w-3" aria-hidden />
       <span>
-        データ時刻{" "}
+        <span className="hidden min-[350px]:inline">データ時刻 </span>
         <time className="tabular-nums text-rail-text">
           {dataUpdatedAt ? formatTimeJa(null, dataUpdatedAt) : "--:--:--"}
         </time>

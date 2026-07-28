@@ -35,7 +35,7 @@ export function DataUsageNotice({ source }: DataUsageNoticeProps) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-rail-border bg-rail-bg/60 px-2 py-1 text-[11px] font-medium text-rail-muted transition hover:border-orange-600 hover:text-rail-text focus:outline-none focus:ring-2 focus:ring-orange-500"
+        className="pressable inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg border border-rail-border bg-rail-bg/55 px-2.5 py-1 text-[11px] font-semibold text-rail-muted hover:border-orange-500/70 hover:text-rail-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
         aria-haspopup="dialog"
       >
         <Info className="h-3 w-3" aria-hidden />
@@ -45,7 +45,7 @@ export function DataUsageNotice({ source }: DataUsageNoticeProps) {
       {open &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+            className="animate-scrim-enter fixed inset-0 z-[100] flex items-end justify-center bg-black/65 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
             onMouseDown={(event) => {
               if (event.currentTarget === event.target) setOpen(false);
             }}
@@ -54,7 +54,7 @@ export function DataUsageNotice({ source }: DataUsageNoticeProps) {
               role="dialog"
               aria-modal="true"
               aria-labelledby="data-usage-title"
-              className="safe-bottom w-full max-w-lg rounded-t-2xl border border-rail-border bg-rail-surface p-5 shadow-2xl sm:rounded-2xl"
+              className="app-sheet animate-sheet-enter safe-bottom max-h-[88dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border p-5 sm:rounded-2xl"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -71,7 +71,7 @@ export function DataUsageNotice({ source }: DataUsageNoticeProps) {
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="rounded-lg p-2 text-rail-muted transition hover:bg-rail-bg hover:text-rail-text focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="pressable flex h-11 w-11 items-center justify-center rounded-full text-rail-muted hover:bg-rail-bg hover:text-rail-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
                   aria-label="閉じる"
                 >
                   <X className="h-5 w-5" aria-hidden />

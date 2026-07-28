@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { TrainLocation } from "@/types/train";
@@ -9,6 +9,10 @@ import { MAP_STYLE } from "@/features/map/mapStyle";
 import { getStatusAppearance } from "@/lib/trainStatus";
 import { getRouteIndex } from "@/lib/routeGeometry";
 import { advanceEstimatedFraction } from "@/lib/trainMotion";
+import {
+  DEFAULT_MAP_BOUNDS,
+  getVisibleRailwayBounds,
+} from "@/lib/mapViewport";
 import {
   buildPolylineIndex,
   positionAtFraction,
@@ -35,12 +39,6 @@ interface TrainMotionState {
   marker: maplibregl.Marker;
 }
 
-// 東京〜横浜が収まる初期表示範囲(バウンディングボックス)
-const INITIAL_BOUNDS: [[number, number], [number, number]] = [
-  [138.45, 34.75], // 関東南西
-  [141.0, 36.95], // 関東北東
-];
-
 // 実速度相当ではスマホ画面上の移動がほぼ見えないため、表示用の推定移動だけを少し強調する。
 // 詳細画面の速度値や、駅間を越えない制限には影響しない。
 const ESTIMATED_MOTION_SPEED_MULTIPLIER = 3;
@@ -66,6 +64,10 @@ export default function TrainMapInner({
   // 最新の onSelect を参照するための ref(マーカー生成時のクロージャ固定を回避)
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+  const visibleBounds = useMemo(
+    () => getVisibleRailwayBounds(railwayLines, visibleLineIds),
+    [railwayLines, visibleLineIds],
+  );
 
   // --- 地図の初期化(一度だけ) ---
   useEffect(() => {
@@ -77,8 +79,8 @@ export default function TrainMapInner({
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: MAP_STYLE,
-      bounds: INITIAL_BOUNDS,
-      fitBoundsOptions: { padding: 48 },
+      bounds: DEFAULT_MAP_BOUNDS,
+      fitBoundsOptions: { padding: 40, maxZoom: 10.5 },
       attributionControl: false,
     });
     mapRef.current = map;
@@ -181,6 +183,27 @@ export default function TrainMapInner({
       if (map.getSource(sourceId)) map.removeSource(sourceId);
     }
   }, [mapReady, railwayLines, visibleLineIds]);
+
+  // --- 選択路線が画面の主役になるよう、表示範囲を自動調整 ---
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !visibleBounds) return;
+
+    const compact = window.matchMedia("(max-width: 639px)").matches;
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    map.stop();
+    map.resize();
+    map.fitBounds(visibleBounds, {
+      padding: compact
+        ? { top: 72, right: 32, bottom: 116, left: 32 }
+        : { top: 76, right: 72, bottom: 84, left: 72 },
+      maxZoom: 10.5,
+      duration: reducedMotion ? 0 : 650,
+    });
+  }, [mapReady, visibleBounds]);
 
   // --- ODPT の駅間情報を越えない範囲で、推定位置を滑らかに進める ---
   useEffect(() => {
@@ -404,7 +427,7 @@ function createTrainElement(): HTMLDivElement {
   el.tabIndex = 0;
   el.setAttribute("role", "button");
   // タップ領域を十分に確保
-  el.className = "cursor-pointer";
+  el.className = "train-marker cursor-pointer outline-none";
   el.innerHTML = `
     <div data-pill class="relative flex h-[40px] w-[40px] items-center justify-center transition-transform">
       <span data-delay
@@ -451,6 +474,8 @@ function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
   const delay = el.querySelector<HTMLElement>("[data-delay]");
   const delayText = el.querySelector<HTMLElement>("[data-delay-text]");
 
+  el.style.zIndex = args.selected ? "20" : "";
+  el.dataset.selected = args.selected ? "true" : "false";
   if (pill) {
     pill.style.transform = args.selected ? "scale(1.18)" : "scale(1)";
     pill.style.filter = args.selected

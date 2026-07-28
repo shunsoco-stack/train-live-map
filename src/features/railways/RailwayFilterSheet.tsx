@@ -6,9 +6,11 @@ import {
   Layers3,
   Loader2,
   Search,
+  Sparkles,
   Star,
   X,
 } from "lucide-react";
+import { defaultVisibleRailwayIds } from "@/data/railwayCatalog";
 import type { RailwayFilterOption } from "@/types/railway";
 
 const FAVORITE_LINES_STORAGE_KEY = "train-live-map:favorite-lines";
@@ -120,7 +122,7 @@ export function RailwayFilterSheet({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="pointer-events-auto absolute bottom-[4.5rem] right-3 z-20 flex min-h-11 items-center gap-2 rounded-full border border-orange-300/70 bg-rail-surface/95 px-3.5 text-sm font-bold text-rail-text shadow-xl backdrop-blur transition hover:border-rail-accent"
+        className="app-material pressable pointer-events-auto absolute bottom-[4.75rem] right-3 z-20 flex min-h-12 items-center gap-2 rounded-full border border-orange-300/70 px-3.5 text-sm font-bold text-rail-text hover:border-rail-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
         aria-label={`表示路線を選ぶ。${selectedCount}路線を表示中`}
       >
         <Layers3 className="h-4 w-4 text-rail-accent" aria-hidden />
@@ -141,12 +143,15 @@ export function RailwayFilterSheet({
             type="button"
             aria-label="路線選択を閉じる"
             onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-black/60 backdrop-blur-[1px]"
+            className="animate-scrim-enter absolute inset-0 bg-black/60 backdrop-blur-[2px]"
           />
 
-          <section className="safe-bottom relative flex max-h-[82dvh] w-full max-w-lg flex-col rounded-t-3xl border border-rail-border bg-rail-surface shadow-2xl">
+          <section className="app-sheet animate-sheet-enter safe-bottom relative flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-3xl border">
             <div className="flex justify-center pt-2.5">
-              <span className="h-1 w-10 rounded-full bg-rail-border" aria-hidden />
+              <span
+                className="h-1.5 w-10 rounded-full bg-orange-100/25"
+                aria-hidden
+              />
             </div>
 
             <div className="flex items-start justify-between gap-3 px-4 pb-3 pt-2">
@@ -162,7 +167,7 @@ export function RailwayFilterSheet({
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="閉じる"
-                className="flex h-10 w-10 items-center justify-center rounded-full text-rail-muted hover:bg-white/5"
+                className="pressable flex h-11 w-11 items-center justify-center rounded-full text-rail-muted hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
               >
                 <X className="h-5 w-5" aria-hidden />
               </button>
@@ -179,7 +184,7 @@ export function RailwayFilterSheet({
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="路線名を検索"
-                  className="h-11 w-full rounded-xl border border-rail-border bg-black/20 pl-9 pr-3 text-sm text-rail-text outline-none placeholder:text-rail-muted focus:border-rail-accent"
+                  className="h-11 w-full rounded-xl border border-rail-border bg-black/20 pl-9 pr-3 text-sm text-rail-text outline-none placeholder:text-rail-muted focus:border-rail-accent focus:ring-2 focus:ring-orange-400/30"
                 />
               </div>
 
@@ -187,7 +192,7 @@ export function RailwayFilterSheet({
                 type="button"
                 aria-pressed={favoritesOnly}
                 onClick={() => setFavoritesOnly((current) => !current)}
-                className={`mt-2 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border px-3 text-sm font-semibold transition ${
+                className={`pressable mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border px-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-200 ${
                   favoritesOnly
                     ? "border-yellow-300 bg-yellow-300/15 text-yellow-200"
                     : "border-rail-border bg-black/20 text-rail-muted hover:border-yellow-300/70"
@@ -204,22 +209,30 @@ export function RailwayFilterSheet({
                 </span>
               </button>
 
-              <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => onChange(defaultVisibleRailwayIds(options))}
+                  className="pressable flex min-h-11 items-center justify-center gap-1 rounded-xl border border-orange-300/70 bg-orange-400/15 px-2 text-xs font-semibold text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
+                >
+                  <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                  おすすめ
+                </button>
                 <button
                   type="button"
                   onClick={() =>
                     onChange(new Set(availableOptions.map((option) => option.id)))
                   }
-                  className="min-h-10 rounded-xl border border-rail-accent bg-rail-accent/15 px-3 text-sm font-semibold text-orange-200"
+                  className="pressable min-h-11 rounded-xl border border-rail-border bg-black/20 px-2 text-xs font-semibold text-rail-muted hover:border-orange-300/70 hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
                 >
-                  すべて表示
+                  すべて
                 </button>
                 <button
                   type="button"
                   onClick={() => onChange(new Set())}
-                  className="min-h-10 rounded-xl border border-rail-border bg-black/20 px-3 text-sm font-semibold text-rail-muted"
+                  className="pressable min-h-11 rounded-xl border border-rail-border bg-black/20 px-2 text-xs font-semibold text-rail-muted hover:border-orange-300/70 hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
                 >
-                  すべて隠す
+                  隠す
                 </button>
               </div>
             </div>
@@ -249,7 +262,7 @@ export function RailwayFilterSheet({
                       return (
                         <div
                           key={option.id}
-                          className={`flex min-h-12 overflow-hidden rounded-xl border transition ${
+                          className={`flex min-h-12 overflow-hidden rounded-xl border transition-colors ${
                             selected
                               ? "border-orange-300 bg-orange-400/15"
                               : "border-rail-border bg-black/15"
@@ -260,7 +273,7 @@ export function RailwayFilterSheet({
                             disabled={unavailable}
                             aria-pressed={selected}
                             onClick={() => toggle(option.id)}
-                            className={`flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left ${
+                            className={`pressable flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-300 ${
                               unavailable
                                 ? "cursor-not-allowed opacity-45"
                                 : ""
@@ -299,7 +312,7 @@ export function RailwayFilterSheet({
                               favorite ? "から解除" : "に登録"
                             }`}
                             onClick={() => toggleFavorite(option.id)}
-                            className={`flex w-12 shrink-0 items-center justify-center border-l transition ${
+                            className={`pressable flex w-12 shrink-0 items-center justify-center border-l focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-yellow-200 ${
                               favorite
                                 ? "border-yellow-300/30 bg-yellow-300/10 text-yellow-300"
                                 : "border-rail-border text-rail-muted hover:bg-white/5 hover:text-yellow-200"

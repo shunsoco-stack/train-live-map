@@ -17,7 +17,7 @@ export function TrainFilterBar({ value, onChange, counts }: TrainFilterBarProps)
     <div
       role="tablist"
       aria-label="列車の絞り込み"
-      className="pointer-events-auto flex gap-1.5 overflow-x-auto pb-0.5"
+      className="scrollbar-none pointer-events-auto flex snap-x snap-mandatory gap-1.5 overflow-x-auto overscroll-x-contain pb-0.5"
     >
       {TRAIN_FILTERS.map((f) => {
         const active = f.key === value;
@@ -27,10 +27,10 @@ export function TrainFilterBar({ value, onChange, counts }: TrainFilterBarProps)
             role="tab"
             aria-selected={active}
             onClick={() => onChange(f.key)}
-            className={`flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors ${
+            className={`pressable flex min-h-11 shrink-0 snap-start items-center gap-1.5 rounded-full border px-3 text-sm font-semibold shadow-lg backdrop-blur focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 ${
               active
-                ? "border-rail-accent bg-rail-accent text-black"
-                : "border-rail-border bg-rail-surface/90 text-rail-text hover:border-rail-accent/60"
+                ? "border-orange-300 bg-rail-accent text-black shadow-orange-950/30"
+                : "app-material border-rail-border text-rail-text hover:border-rail-accent/60"
             }`}
           >
             <span>{f.label}</span>

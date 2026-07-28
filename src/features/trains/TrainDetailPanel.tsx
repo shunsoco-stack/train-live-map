@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -33,6 +33,8 @@ interface TrainDetailPanelProps {
  */
 export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
   const now = useNow(1000);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const trainId = train?.id ?? null;
 
   // Esc キーで閉じる
   useEffect(() => {
@@ -43,6 +45,14 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [train, onClose]);
+
+  useEffect(() => {
+    if (!trainId) return;
+    const frame = window.requestAnimationFrame(() =>
+      closeButtonRef.current?.focus(),
+    );
+    return () => window.cancelAnimationFrame(frame);
+  }, [trainId]);
 
   if (!train) return null;
 
@@ -56,31 +66,39 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
       role="dialog"
       aria-modal="true"
       aria-label={`${train.lineName} ${train.destination}行の詳細`}
+      aria-describedby={
+        train.dataAccuracy !== "actual"
+          ? "train-detail-accuracy-note"
+          : undefined
+      }
     >
       {/* 背景 */}
       <button
         type="button"
         aria-label="閉じる"
         onClick={onClose}
-        className="absolute inset-0 bg-black/50"
+        className="animate-scrim-enter absolute inset-0 bg-black/55 backdrop-blur-[2px]"
       />
 
       {/* シート本体 */}
-      <div className="safe-bottom relative w-full max-w-md rounded-t-2xl border border-rail-border bg-rail-surface shadow-2xl animate-[slideup_0.18s_ease-out]">
+      <div className="app-sheet animate-sheet-enter safe-bottom relative max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-3xl border">
         {/* ドラッグハンドル */}
         <div className="flex justify-center pt-2">
-          <span className="h-1 w-10 rounded-full bg-rail-border" aria-hidden />
+          <span
+            className="h-1.5 w-10 rounded-full bg-orange-100/25"
+            aria-hidden
+          />
         </div>
 
         {/* ヘッダー */}
         <div className="flex items-start justify-between gap-2 px-4 pt-2">
           <div className="flex items-center gap-2">
             <span
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold"
-              style={{ backgroundColor: appearance.color, color: "#0a0a0a" }}
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/25 text-white shadow-inner"
+              style={{ backgroundColor: train.lineColor }}
               aria-hidden
             >
-              {appearance.symbol}
+              <TrainFront className="h-5 w-5" />
             </span>
             <div className="leading-tight">
               <p className="mb-0.5 flex items-center gap-1.5 text-xs font-semibold text-rail-muted">
@@ -98,10 +116,11 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
             </div>
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={onClose}
             aria-label="詳細を閉じる"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-rail-muted hover:bg-white/5"
+            className="pressable flex h-11 w-11 items-center justify-center rounded-full text-rail-muted hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
           >
             <X className="h-5 w-5" aria-hidden />
           </button>
@@ -155,8 +174,16 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
           <DetailItem icon={Clock} label="最終更新">
             {formatTimeJa(train.lastUpdatedAt)}
           </DetailItem>
-          <DetailItem icon={MapPin} label="現在地" full>
-            緯度 {train.latitude.toFixed(5)} ／ 経度 {train.longitude.toFixed(5)}
+          <DetailItem icon={MapPin} label="位置情報" full>
+            <span>
+              {train.dataAccuracy === "actual"
+                ? "取得座標"
+                : "駅間情報からの推定位置"}
+            </span>
+            <span className="mt-0.5 block text-[11px] font-normal tabular-nums text-rail-muted">
+              緯度 {train.latitude.toFixed(5)} ／ 経度{" "}
+              {train.longitude.toFixed(5)}
+            </span>
           </DetailItem>
           <DetailItem icon={Gauge} label="データ精度" full>
             {dataAccuracyLabelJa(train.dataAccuracy)}
@@ -165,18 +192,14 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
 
         {/* 注意書き */}
         {train.dataAccuracy !== "actual" && (
-          <p className="border-t border-rail-border px-4 py-3 text-[11px] leading-relaxed text-rail-muted">
+          <p
+            id="train-detail-accuracy-note"
+            className="border-t border-rail-border px-4 py-3 text-[11px] leading-relaxed text-rail-muted"
+          >
             ※ 位置情報はモックまたは駅間情報からの推定です。実際の列車位置とは異なる場合があります。
           </p>
         )}
       </div>
-
-      <style>{`
-        @keyframes slideup {
-          from { transform: translateY(100%); }
-          to { transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 }
