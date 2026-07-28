@@ -318,6 +318,12 @@ export default function TrainMapInner({
         label: `${train.lineName} ${directionLabel} ${train.destination}行 ${appearance.label}`,
         lineColor: train.lineColor,
         direction: train.direction,
+        face:
+          train.status === "suspended"
+            ? "suspended"
+            : train.status === "delayed" || train.delayMinutes > 0
+              ? "delayed"
+              : "normal",
         delayMinutes:
           train.status === "suspended"
             ? 0
@@ -354,10 +360,32 @@ const TRAIN_ICON_SVG = `
   <path d="M9 4.5h14c3 0 5 2.2 5 5v12.2c0 3.2-2.5 5.8-5.7 5.8H9.7C6.5 27.5 4 24.9 4 21.7V9.5c0-2.8 2-5 5-5Z"
         data-train-body fill="#f68b1e" stroke="#493b38" stroke-width="1.5"/>
   <rect x="7" y="7.5" width="18" height="10" rx="4" fill="#fffaf7" stroke="#493b38" stroke-width="1.2"/>
-  <circle cx="11.5" cy="12.4" r="1.35" fill="#493b38"/>
-  <circle cx="20.5" cy="12.4" r="1.35" fill="#493b38"/>
-  <path d="M13.2 14.6c.8.9 1.7 1.3 2.8 1.3s2-.4 2.8-1.3"
-        fill="none" stroke="#493b38" stroke-width="1.2" stroke-linecap="round"/>
+  <g data-train-face="normal">
+    <circle cx="11.5" cy="12.4" r="1.35" fill="#493b38"/>
+    <circle cx="20.5" cy="12.4" r="1.35" fill="#493b38"/>
+    <path d="M13.2 14.6c.8.9 1.7 1.3 2.8 1.3s2-.4 2.8-1.3"
+          fill="none" stroke="#493b38" stroke-width="1.2" stroke-linecap="round"/>
+  </g>
+  <g data-train-face="delayed" style="display:none">
+    <path d="m9.4 11.5 3.5-.9M19.1 10.6l3.5.9"
+          fill="none" stroke="#493b38" stroke-width="1.1" stroke-linecap="round"/>
+    <circle cx="11.5" cy="13" r="1.15" fill="#493b38"/>
+    <circle cx="20.5" cy="13" r="1.15" fill="#493b38"/>
+    <path d="M13.2 15.6c.8-.8 1.7-1.2 2.8-1.2s2 .4 2.8 1.2"
+          fill="none" stroke="#493b38" stroke-width="1.2" stroke-linecap="round"/>
+  </g>
+  <g data-train-face="suspended" style="display:none">
+    <path d="m9.3 11.5 3.6-.9M19.1 10.6l3.6.9"
+          fill="none" stroke="#493b38" stroke-width="1.1" stroke-linecap="round"/>
+    <path d="M9.7 12.8c1.1.7 2.3.7 3.5 0M18.8 12.8c1.2.7 2.4.7 3.5 0"
+          fill="none" stroke="#493b38" stroke-width="1.15" stroke-linecap="round"/>
+    <path d="M13.1 16c.8-.9 1.8-1.3 2.9-1.3s2.1.4 2.9 1.3"
+          fill="none" stroke="#493b38" stroke-width="1.2" stroke-linecap="round"/>
+    <path d="M11.5 13.4v2.2M20.5 13.4v2.2"
+          fill="none" stroke="#38bdf8" stroke-width="1.25" stroke-linecap="round"/>
+    <circle cx="11.5" cy="16.1" r=".72" fill="#38bdf8" stroke="#258bb5" stroke-width=".3"/>
+    <circle cx="20.5" cy="16.1" r=".72" fill="#38bdf8" stroke="#258bb5" stroke-width=".3"/>
+  </g>
   <circle cx="9" cy="21.5" r="2" fill="#ffafc2"/>
   <circle cx="23" cy="21.5" r="2" fill="#ffafc2"/>
   <path d="M12 22.2h8" stroke="#493b38" stroke-width="1.4" stroke-linecap="round"/>
@@ -402,6 +430,7 @@ interface TrainStyleArgs {
   label: string;
   lineColor: string;
   direction: TrainLocation["direction"];
+  face: "normal" | "delayed" | "suspended";
   delayMinutes: number;
   selected: boolean;
 }
@@ -415,6 +444,8 @@ function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
   );
   const pill = el.querySelector<HTMLElement>("[data-pill]");
   const trainBody = el.querySelector<SVGElement>("[data-train-body]");
+  const faces =
+    el.querySelectorAll<SVGGElement>("[data-train-face]");
   const badge = el.querySelector<HTMLElement>("[data-badge]");
   const direction = el.querySelector<HTMLElement>("[data-direction]");
   const delay = el.querySelector<HTMLElement>("[data-delay]");
@@ -427,6 +458,10 @@ function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
       : "drop-shadow(0 3px 3px rgba(0,0,0,0.48))";
   }
   if (trainBody) trainBody.style.fill = args.lineColor;
+  for (const face of faces) {
+    face.style.display =
+      face.dataset.trainFace === args.face ? "inline" : "none";
+  }
   if (delay && delayText) {
     delay.style.display = args.delayMinutes > 0 ? "flex" : "none";
     delayText.textContent =
