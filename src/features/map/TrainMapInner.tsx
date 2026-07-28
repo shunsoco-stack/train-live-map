@@ -7,11 +7,7 @@ import type { TrainLocation } from "@/types/train";
 import type { RailwayMapLine } from "@/types/railway";
 import { MAP_STYLE } from "@/features/map/mapStyle";
 import { getStatusAppearance } from "@/lib/trainStatus";
-import {
-  getRouteIndex,
-  headingAtPosition,
-  headingOnPolyline,
-} from "@/lib/routeGeometry";
+import { getRouteIndex } from "@/lib/routeGeometry";
 import { advanceEstimatedFraction } from "@/lib/trainMotion";
 import {
   buildPolylineIndex,
@@ -37,7 +33,6 @@ interface TrainMotionState {
   routeIndex: PolylineIndex;
   pathKey: string;
   marker: maplibregl.Marker;
-  headingElement: HTMLElement | null;
 }
 
 // 東京〜横浜が収まる初期表示範囲(バウンディングボックス)
@@ -214,16 +209,6 @@ export default function TrainMapInner({
               nextFraction,
             );
             motion.marker.setLngLat([longitude, latitude]);
-            if (motion.headingElement) {
-              const reverse = motion.toFraction < motion.fromFraction;
-              motion.headingElement.style.transform =
-                `rotate(${headingOnPolyline(
-                  motion.routeIndex,
-                  longitude,
-                  latitude,
-                  reverse,
-                )}deg)`;
-            }
           }
         }
       }
@@ -319,8 +304,6 @@ export default function TrainMapInner({
           routeIndex,
           pathKey,
           marker,
-          headingElement:
-            marker.getElement().querySelector<HTMLElement>("[data-heading]"),
         });
       } else {
         trainMotionRef.current.delete(train.id);
@@ -328,18 +311,6 @@ export default function TrainMapInner({
       }
 
       const directionLabel = train.direction === "inbound" ? "上り" : "下り";
-      const heading = routeSegment?.coordinates
-        ? headingOnPolyline(
-            buildPolylineIndex(routeSegment.coordinates),
-            train.longitude,
-            train.latitude,
-            routeSegment.toFraction < routeSegment.fromFraction,
-          )
-        : headingAtPosition(
-            train.longitude,
-            train.latitude,
-            train.direction === "inbound",
-          );
       styleTrainElement(marker.getElement(), {
         color: appearance.color,
         ring: appearance.ring,
@@ -348,7 +319,6 @@ export default function TrainMapInner({
         lineColor: train.lineColor,
         direction: train.direction,
         selected: isSelected,
-        heading,
       });
     }
 
@@ -374,10 +344,12 @@ export default function TrainMapInner({
 
 /** 小さな表示でも表情が分かる、丸みのある正面向き電車アイコン。 */
 const TRAIN_ICON_SVG = `
-<svg viewBox="0 0 32 32" class="h-[26px] w-[26px]" aria-hidden="true">
+<svg viewBox="0 0 32 32" class="h-[36px] w-[36px]" aria-hidden="true">
   <path d="M9 4.5h14c3 0 5 2.2 5 5v12.2c0 3.2-2.5 5.8-5.7 5.8H9.7C6.5 27.5 4 24.9 4 21.7V9.5c0-2.8 2-5 5-5Z"
-        fill="#fffaf7" stroke="#493b38" stroke-width="1.5"/>
-  <rect x="7" y="7.5" width="18" height="10" rx="4" fill="#dff4ff" stroke="#493b38" stroke-width="1.2"/>
+        fill="none" stroke="#fffdf9" stroke-width="4.5" stroke-linejoin="round"/>
+  <path d="M9 4.5h14c3 0 5 2.2 5 5v12.2c0 3.2-2.5 5.8-5.7 5.8H9.7C6.5 27.5 4 24.9 4 21.7V9.5c0-2.8 2-5 5-5Z"
+        data-train-body fill="#f68b1e" stroke="#493b38" stroke-width="1.5"/>
+  <rect x="7" y="7.5" width="18" height="10" rx="4" fill="#fffaf7" stroke="#493b38" stroke-width="1.2"/>
   <circle cx="11.5" cy="12.4" r="1.35" fill="#493b38"/>
   <circle cx="20.5" cy="12.4" r="1.35" fill="#493b38"/>
   <path d="M13.2 14.6c.8.9 1.7 1.3 2.8 1.3s2-.4 2.8-1.3"
@@ -389,20 +361,10 @@ const TRAIN_ICON_SVG = `
 </svg>`;
 
 /**
- * 進行方向を示す矢印(既定で北=上を向く)。方位角ぶん回転させて使う。
- * 小さく表示しても向きが一目で分かるよう、切り込みのない単純な三角形にする。
- */
-const HEADING_ARROW_SVG = `
-<svg viewBox="0 0 24 24" fill="currentColor" class="h-full w-full" aria-hidden="true">
-  <path d="M12 3 L20.5 21 L3.5 21 Z"/>
-</svg>`;
-
-/**
  * 列車マーカーの DOM 要素を生成する(スタイルは styleTrainElement で適用)。
  *
  * 構成:
- *   - 進行方向の矢印(線路に沿った方位角ぶん回転。前後がわかる)
- *   - 表情のある電車アイコン
+ *   - 路線カラーで塗られた、表情のある電車アイコン
  *   - 状態記号のバッジ(色に依存せず状態がわかるようにする)
  */
 function createTrainElement(): HTMLDivElement {
@@ -412,12 +374,8 @@ function createTrainElement(): HTMLDivElement {
   // タップ領域を十分に確保
   el.className = "cursor-pointer";
   el.innerHTML = `
-    <div data-pill class="relative flex items-center gap-1 rounded-full border-2 p-1 shadow-lg transition-transform">
-      <span data-heading
-            class="flex h-[19px] w-[19px] shrink-0 items-center justify-center rounded-full bg-white/95 p-[3px] text-black shadow-sm">${HEADING_ARROW_SVG}</span>
-      <span data-icon class="flex shrink-0 items-center drop-shadow-sm">${TRAIN_ICON_SVG}</span>
-      <span data-line
-            class="pointer-events-none absolute inset-x-2 bottom-0 h-[3px] rounded-full"></span>
+    <div data-pill class="relative flex h-[40px] w-[40px] items-center justify-center transition-transform">
+      <span data-icon class="flex shrink-0 items-center">${TRAIN_ICON_SVG}</span>
       <span data-badge
             class="absolute -right-1.5 -top-1.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full border text-[9px] font-bold leading-none"></span>
       <span data-direction
@@ -435,33 +393,22 @@ interface TrainStyleArgs {
   lineColor: string;
   direction: TrainLocation["direction"];
   selected: boolean;
-  /** 進行方向の方位角(度)。北=0。 */
-  heading: number;
 }
 
 function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
   el.setAttribute("aria-label", args.label);
   const pill = el.querySelector<HTMLElement>("[data-pill]");
-  const heading = el.querySelector<HTMLElement>("[data-heading]");
-  const line = el.querySelector<HTMLElement>("[data-line]");
+  const trainBody = el.querySelector<SVGElement>("[data-train-body]");
   const badge = el.querySelector<HTMLElement>("[data-badge]");
   const direction = el.querySelector<HTMLElement>("[data-direction]");
-  const text = pillTextColor(args.lineColor);
 
   if (pill) {
-    pill.style.backgroundColor = args.lineColor;
-    pill.style.borderColor = args.selected ? "#ffffff" : args.ring;
-    pill.style.color = text;
     pill.style.transform = args.selected ? "scale(1.18)" : "scale(1)";
-    pill.style.boxShadow = args.selected
-      ? "0 0 0 3px rgba(255,255,255,0.5), 0 4px 10px rgba(0,0,0,0.5)"
-      : "0 2px 6px rgba(0,0,0,0.5)";
+    pill.style.filter = args.selected
+      ? "drop-shadow(0 0 4px rgba(255,255,255,0.95)) drop-shadow(0 4px 4px rgba(0,0,0,0.55))"
+      : "drop-shadow(0 3px 3px rgba(0,0,0,0.48))";
   }
-  // 矢印を線路の進行方向へ回転(SVG は北向きなので方位角をそのまま適用)
-  if (heading) heading.style.transform = `rotate(${args.heading}deg)`;
-  // マーカー本体は路線カラー、下端の細線と右上バッジは運行状態カラー。
-  // 路線の識別と、遅延・停止などの状態識別を同時に保つ。
-  if (line) line.style.backgroundColor = args.color;
+  if (trainBody) trainBody.style.fill = args.lineColor;
   if (direction) {
     const isInbound = args.direction === "inbound";
     direction.textContent = isInbound ? "↑ 上り" : "↓ 下り";
@@ -469,34 +416,11 @@ function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
     direction.style.borderColor = isInbound ? "#93c5fd" : "#fdba74";
   }
   if (badge) {
+    // 通常走行時は余分な三角記号を出さず、注意が必要な状態だけ表示する。
+    badge.style.display = args.symbol === "▶" ? "none" : "flex";
     badge.textContent = args.symbol;
     badge.style.backgroundColor = args.ring;
     badge.style.borderColor = args.color;
     badge.style.color = "#ffffff";
   }
-}
-
-/** 背景色に応じて文字色(黒/白)を選ぶ。可読性確保。 */
-function pillTextColor(bg: string): string {
-  const normalized = bg.trim().replace(/^#/, "");
-  const hex =
-    normalized.length === 3
-      ? normalized
-          .split("")
-          .map((part) => `${part}${part}`)
-          .join("")
-      : normalized;
-
-  if (!/^[0-9a-f]{6}$/i.test(hex)) return "#ffffff";
-
-  const channels = [0, 2, 4].map((offset) => {
-    const value = Number.parseInt(hex.slice(offset, offset + 2), 16) / 255;
-    return value <= 0.04045
-      ? value / 12.92
-      : ((value + 0.055) / 1.055) ** 2.4;
-  });
-  const luminance =
-    0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
-
-  return luminance > 0.42 ? "#1a1a1a" : "#ffffff";
 }
