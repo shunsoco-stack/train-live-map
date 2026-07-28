@@ -2,6 +2,7 @@ import type {
   ServiceStatusApiResponse,
   TrainsApiResponse,
 } from "@/types/train";
+import type { RailwaysApiResponse } from "@/types/railway";
 
 /**
  * フロントエンドから Next.js の Route Handler を呼び出すクライアント。
@@ -24,4 +25,10 @@ export function fetchServiceStatus(
   signal?: AbortSignal,
 ): Promise<ServiceStatusApiResponse> {
   return getJson<ServiceStatusApiResponse>("/api/service-status", signal);
+}
+
+export function fetchRailways(
+  signal?: AbortSignal,
+): Promise<RailwaysApiResponse> {
+  return getJson<RailwaysApiResponse>("/api/railways", signal);
 }

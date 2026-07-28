@@ -1,22 +1,28 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { TrainLocation } from "@/types/train";
-import { STATIONS } from "@/data/stations";
-import { ROUTE_LINE } from "@/data/routeLine";
+import type { RailwayMapLine } from "@/types/railway";
 import { MAP_STYLE } from "@/features/map/mapStyle";
 import { getStatusAppearance } from "@/lib/trainStatus";
 import {
-  coordinateAtFraction,
   getRouteIndex,
   headingAtPosition,
+  headingOnPolyline,
 } from "@/lib/routeGeometry";
 import { advanceEstimatedFraction } from "@/lib/trainMotion";
+import {
+  buildPolylineIndex,
+  positionAtFraction,
+  type PolylineIndex,
+} from "@/lib/geo";
 
 interface TrainMapInnerProps {
   trains: TrainLocation[];
+  railwayLines: RailwayMapLine[];
+  visibleLineIds: ReadonlySet<string>;
   selectedId: string | null;
   onSelect: (id: string) => void;
   /** 色再計算のための現在時刻(1秒ごとに更新される) */
@@ -28,14 +34,16 @@ interface TrainMotionState {
   fromFraction: number;
   toFraction: number;
   speedKmh: number;
+  routeIndex: PolylineIndex;
+  pathKey: string;
   marker: maplibregl.Marker;
   headingElement: HTMLElement | null;
 }
 
 // 東京〜横浜が収まる初期表示範囲(バウンディングボックス)
 const INITIAL_BOUNDS: [[number, number], [number, number]] = [
-  [139.58, 35.44], // 南西
-  [139.8, 35.7], // 北東
+  [138.45, 34.75], // 関東南西
+  [141.0, 36.95], // 関東北東
 ];
 
 // 実速度相当ではスマホ画面上の移動がほぼ見えないため、表示用の推定移動だけを少し強調する。
@@ -48,6 +56,8 @@ const ESTIMATED_MOTION_SPEED_MULTIPLIER = 3;
  */
 export default function TrainMapInner({
   trains,
+  railwayLines,
+  visibleLineIds,
   selectedId,
   onSelect,
   now,
@@ -55,6 +65,7 @@ export default function TrainMapInner({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const loadedRef = useRef(false);
+  const [mapReady, setMapReady] = useState(false);
   const trainMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
   const trainMotionRef = useRef<Map<string, TrainMotionState>>(new Map());
   // 最新の onSelect を参照するための ref(マーカー生成時のクロージャ固定を回避)
@@ -85,46 +96,96 @@ export default function TrainMapInner({
 
     map.on("load", () => {
       loadedRef.current = true;
-
-      // 路線(LineString)
-      map.addSource("route", { type: "geojson", data: ROUTE_LINE });
-      map.addLayer({
-        id: "route-line-casing",
-        type: "line",
-        source: "route",
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": "#7c2d12", "line-width": 8 },
-      });
-      map.addLayer({
-        id: "route-line",
-        type: "line",
-        source: "route",
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": "#f68b1e", "line-width": 4 },
-      });
-
-      // 駅マーカー(HTML マーカーで駅名ラベルも表示)
-      for (const station of STATIONS) {
-        const el = document.createElement("div");
-        el.className = "flex flex-col items-center pointer-events-none select-none";
-        el.innerHTML = `
-          <span class="block h-3 w-3 rounded-full border-2 border-orange-300 bg-rail-bg shadow"></span>
-          <span class="mt-1 rounded bg-black/70 px-1.5 py-0.5 text-[11px] font-medium leading-none text-orange-100 whitespace-nowrap">${station.name}</span>
-        `;
-        new maplibregl.Marker({ element: el, anchor: "top" })
-          .setLngLat([station.longitude, station.latitude])
-          .addTo(map);
-      }
+      setMapReady(true);
     });
 
     return () => {
       map.remove();
       mapRef.current = null;
       loadedRef.current = false;
+      setMapReady(false);
       trainMarkers.clear();
       trainMotions.clear();
     };
   }, []);
+
+  // --- 路線レイヤーの追加・表示切り替え ---
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    const activeSourceIds = new Set<string>();
+    for (const line of railwayLines) {
+      const sourceId = `railway-route-${line.id}`;
+      const casingId = `${sourceId}-casing`;
+      const lineId = `${sourceId}-line`;
+      activeSourceIds.add(sourceId);
+
+      const data = {
+        type: "Feature" as const,
+        properties: { id: line.id, name: line.name },
+        geometry: {
+          type: "MultiLineString" as const,
+          coordinates: line.coordinates,
+        },
+      };
+
+      const source = map.getSource(sourceId) as
+        | maplibregl.GeoJSONSource
+        | undefined;
+      if (source) {
+        source.setData(data);
+      } else {
+        map.addSource(sourceId, { type: "geojson", data });
+        map.addLayer({
+          id: casingId,
+          type: "line",
+          source: sourceId,
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: {
+            "line-color": "#24170d",
+            "line-width": 7,
+            "line-opacity": 0.85,
+          },
+        });
+        map.addLayer({
+          id: lineId,
+          type: "line",
+          source: sourceId,
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: {
+            "line-color": line.color,
+            "line-width": 4,
+            "line-opacity": 0.9,
+          },
+        });
+      }
+
+      const visibility = visibleLineIds.has(line.id) ? "visible" : "none";
+      if (map.getLayer(casingId)) {
+        map.setLayoutProperty(casingId, "visibility", visibility);
+      }
+      if (map.getLayer(lineId)) {
+        map.setLayoutProperty(lineId, "visibility", visibility);
+        map.setPaintProperty(lineId, "line-color", line.color);
+      }
+    }
+
+    const style = map.getStyle();
+    for (const sourceId of Object.keys(style.sources ?? {})) {
+      if (
+        !sourceId.startsWith("railway-route-") ||
+        activeSourceIds.has(sourceId)
+      ) {
+        continue;
+      }
+      const casingId = `${sourceId}-casing`;
+      const lineId = `${sourceId}-line`;
+      if (map.getLayer(lineId)) map.removeLayer(lineId);
+      if (map.getLayer(casingId)) map.removeLayer(casingId);
+      if (map.getSource(sourceId)) map.removeSource(sourceId);
+    }
+  }, [mapReady, railwayLines, visibleLineIds]);
 
   // --- ODPT の駅間情報を越えない範囲で、推定位置を滑らかに進める ---
   useEffect(() => {
@@ -132,8 +193,6 @@ export default function TrainMapInner({
 
     let animationFrame = 0;
     let previousTimestamp: number | null = null;
-    const routeLengthMeters = getRouteIndex().totalLength;
-
     const animate = (timestamp: number) => {
       if (previousTimestamp !== null) {
         const elapsedMs = Math.min(100, timestamp - previousTimestamp);
@@ -144,18 +203,26 @@ export default function TrainMapInner({
             fromFraction: motion.fromFraction,
             toFraction: motion.toFraction,
             speedKmh: motion.speedKmh,
-            routeLengthMeters,
+            routeLengthMeters: motion.routeIndex.totalLength,
             elapsedMs,
           });
 
           if (nextFraction !== motion.currentFraction) {
             motion.currentFraction = nextFraction;
-            const [longitude, latitude] = coordinateAtFraction(nextFraction);
+            const [longitude, latitude] = positionAtFraction(
+              motion.routeIndex,
+              nextFraction,
+            );
             motion.marker.setLngLat([longitude, latitude]);
             if (motion.headingElement) {
               const reverse = motion.toFraction < motion.fromFraction;
               motion.headingElement.style.transform =
-                `rotate(${headingAtPosition(longitude, latitude, reverse)}deg)`;
+                `rotate(${headingOnPolyline(
+                  motion.routeIndex,
+                  longitude,
+                  latitude,
+                  reverse,
+                )}deg)`;
             }
           }
         }
@@ -208,11 +275,19 @@ export default function TrainMapInner({
         routeSegment.fromFraction !== routeSegment.toFraction;
 
       if (shouldAnimate && routeSegment) {
+        const routeIndex =
+          routeSegment.coordinates && routeSegment.coordinates.length >= 2
+            ? buildPolylineIndex(routeSegment.coordinates)
+            : getRouteIndex();
+        const pathKey = routeSegment.coordinates
+          ? routeSegment.coordinates.flat().join(",")
+          : "tokaido";
         const existingMotion = trainMotionRef.current.get(train.id);
         const segmentChanged =
           !existingMotion ||
           existingMotion.fromFraction !== routeSegment.fromFraction ||
-          existingMotion.toFraction !== routeSegment.toFraction;
+          existingMotion.toFraction !== routeSegment.toFraction ||
+          existingMotion.pathKey !== pathKey;
 
         let currentFraction =
           (routeSegment.fromFraction + routeSegment.toFraction) / 2;
@@ -234,13 +309,15 @@ export default function TrainMapInner({
         }
 
         const [animatedLongitude, animatedLatitude] =
-          coordinateAtFraction(currentFraction);
+          positionAtFraction(routeIndex, currentFraction);
         marker.setLngLat([animatedLongitude, animatedLatitude]);
         trainMotionRef.current.set(train.id, {
           currentFraction,
           fromFraction: routeSegment.fromFraction,
           toFraction: routeSegment.toFraction,
           speedKmh: train.speedKmh * ESTIMATED_MOTION_SPEED_MULTIPLIER,
+          routeIndex,
+          pathKey,
           marker,
           headingElement:
             marker.getElement().querySelector<HTMLElement>("[data-heading]"),
@@ -251,19 +328,28 @@ export default function TrainMapInner({
       }
 
       const directionLabel = train.direction === "inbound" ? "上り" : "下り";
+      const heading = routeSegment?.coordinates
+        ? headingOnPolyline(
+            buildPolylineIndex(routeSegment.coordinates),
+            train.longitude,
+            train.latitude,
+            routeSegment.toFraction < routeSegment.fromFraction,
+          )
+        : headingAtPosition(
+            train.longitude,
+            train.latitude,
+            train.direction === "inbound",
+          );
       styleTrainElement(marker.getElement(), {
         color: appearance.color,
         ring: appearance.ring,
         symbol: appearance.symbol,
-        label: `${train.trainNumber} ${directionLabel} ${train.destination}行 ${appearance.label}`,
+        label: `${train.lineName} ${train.trainNumber} ${directionLabel} ${train.destination}行 ${appearance.label}`,
         trainNumber: train.trainNumber,
+        lineColor: train.lineColor,
         direction: train.direction,
         selected: isSelected,
-        heading: headingAtPosition(
-          train.longitude,
-          train.latitude,
-          train.direction === "inbound",
-        ),
+        heading,
       });
     }
 
@@ -281,7 +367,7 @@ export default function TrainMapInner({
     <div
       ref={containerRef}
       className="absolute inset-0 h-full w-full"
-      aria-label="東海道線の列車位置地図"
+      aria-label="関東エリアのJR列車位置地図"
       role="application"
     />
   );
@@ -327,6 +413,8 @@ function createTrainElement(): HTMLDivElement {
             class="flex h-[19px] w-[19px] shrink-0 items-center justify-center rounded-full bg-white/95 p-[3px] text-black shadow-sm">${HEADING_ARROW_SVG}</span>
       <span data-icon class="flex shrink-0 items-center">${TRAIN_ICON_SVG}</span>
       <span data-num class="text-[11px] leading-none font-semibold whitespace-nowrap"></span>
+      <span data-line
+            class="pointer-events-none absolute inset-x-2 bottom-0 h-[3px] rounded-full"></span>
       <span data-badge
             class="absolute -right-1.5 -top-1.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full border text-[9px] font-bold leading-none"></span>
       <span data-direction
@@ -342,6 +430,7 @@ interface TrainStyleArgs {
   symbol: string;
   label: string;
   trainNumber: string;
+  lineColor: string;
   direction: TrainLocation["direction"];
   selected: boolean;
   /** 進行方向の方位角(度)。北=0。 */
@@ -353,6 +442,7 @@ function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
   const pill = el.querySelector<HTMLElement>("[data-pill]");
   const heading = el.querySelector<HTMLElement>("[data-heading]");
   const num = el.querySelector<HTMLElement>("[data-num]");
+  const line = el.querySelector<HTMLElement>("[data-line]");
   const badge = el.querySelector<HTMLElement>("[data-badge]");
   const direction = el.querySelector<HTMLElement>("[data-direction]");
   const text = pillTextColor(args.color);
@@ -369,6 +459,7 @@ function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
   // 矢印を線路の進行方向へ回転(SVG は北向きなので方位角をそのまま適用)
   if (heading) heading.style.transform = `rotate(${args.heading}deg)`;
   if (num) num.textContent = args.trainNumber;
+  if (line) line.style.backgroundColor = args.lineColor;
   if (direction) {
     const isInbound = args.direction === "inbound";
     direction.textContent = isInbound ? "↑ 上り" : "↓ 下り";

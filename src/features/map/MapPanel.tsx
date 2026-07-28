@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { Loader2 } from "lucide-react";
 import type { TrainLocation } from "@/types/train";
+import type { RailwayMapLine } from "@/types/railway";
 
 /**
  * MapLibre は SSR で読み込むと window 参照でエラーになるため、
@@ -26,6 +27,8 @@ function MapLoading() {
 
 interface MapPanelProps {
   trains: TrainLocation[];
+  railwayLines: RailwayMapLine[];
+  visibleLineIds: ReadonlySet<string>;
   selectedId: string | null;
   onSelect: (id: string) => void;
   now: Date;

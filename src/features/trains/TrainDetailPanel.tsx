@@ -83,6 +83,14 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
               {appearance.symbol}
             </span>
             <div className="leading-tight">
+              <p className="mb-0.5 flex items-center gap-1.5 text-xs font-semibold text-rail-muted">
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: train.lineColor }}
+                  aria-hidden
+                />
+                {train.lineName}
+              </p>
               <p className="text-base font-bold text-rail-text">
                 {trainTypeLabelJa(train.trainType)}・{train.destination}行
               </p>
@@ -124,6 +132,9 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
           <DetailItem icon={Ticket} label="列車種別">
             {trainTypeLabelJa(train.trainType)}
           </DetailItem>
+          <DetailItem icon={TrainFront} label="路線">
+            {train.lineName}
+          </DetailItem>
           <DetailItem icon={TrainFront} label="行先">
             {train.destination}
           </DetailItem>
@@ -158,9 +169,11 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
         </dl>
 
         {/* 注意書き */}
-        <p className="border-t border-rail-border px-4 py-3 text-[11px] leading-relaxed text-rail-muted">
-          ※ 位置情報はモックまたは推定です。実際の列車位置とは異なります。
-        </p>
+        {train.dataAccuracy !== "actual" && (
+          <p className="border-t border-rail-border px-4 py-3 text-[11px] leading-relaxed text-rail-muted">
+            ※ 位置情報はモックまたは駅間情報からの推定です。実際の列車位置とは異なる場合があります。
+          </p>
+        )}
       </div>
 
       <style>{`

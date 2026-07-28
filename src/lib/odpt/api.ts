@@ -1,5 +1,10 @@
 import { getOdptConfig, isOdptConfigured, type OdptConfig } from "@/lib/odpt/config";
-import type { OdptRailway, OdptTrain, OdptTrainInformation } from "@/lib/odpt/types";
+import type {
+  OdptRailway,
+  OdptStation,
+  OdptTrain,
+  OdptTrainInformation,
+} from "@/lib/odpt/types";
 import { createLogger } from "@/lib/logger";
 
 /**
@@ -140,6 +145,16 @@ export function fetchOdptTrains(
   });
 }
 
+/** 指定事業者の全対象路線の列車位置をまとめて取得する。 */
+export function fetchOdptTrainsForOperator(
+  operator: string,
+  config: OdptConfig = getOdptConfig(),
+): Promise<FetchResult<OdptTrain[]>> {
+  return fetchWithRetry<OdptTrain[]>(config, "odpt:Train", {
+    "odpt:operator": operator,
+  });
+}
+
 /** 指定路線の運行情報(odpt:TrainInformation)を取得する。 */
 export function fetchOdptTrainInformation(
   railway: string,
@@ -159,6 +174,16 @@ export function fetchOdptRailways(
   config: OdptConfig = getOdptConfig(),
 ): Promise<FetchResult<OdptRailway[]>> {
   return fetchWithRetry<OdptRailway[]>(config, "odpt:Railway", {
+    "odpt:operator": operator,
+  });
+}
+
+/** 指定事業者の駅情報を取得する。 */
+export function fetchOdptStations(
+  operator: string,
+  config: OdptConfig = getOdptConfig(),
+): Promise<FetchResult<OdptStation[]>> {
+  return fetchWithRetry<OdptStation[]>(config, "odpt:Station", {
     "odpt:operator": operator,
   });
 }

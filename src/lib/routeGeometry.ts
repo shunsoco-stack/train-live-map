@@ -53,7 +53,7 @@ export function coordinateAtStation(stationId: string): LngLat | null {
 }
 
 /** 2 点間の方位角(度)。北=0、東=90、南=180、西=270。 */
-function bearingDegrees(from: LngLat, to: LngLat): number {
+export function bearingDegrees(from: LngLat, to: LngLat): number {
   const toRad = (d: number) => (d * Math.PI) / 180;
   const toDeg = (r: number) => (r * 180) / Math.PI;
   const [lng1, lat1] = from;
@@ -65,6 +65,31 @@ function bearingDegrees(from: LngLat, to: LngLat): number {
   const x =
     Math.cos(lat1r) * Math.sin(lat2r) - Math.sin(lat1r) * Math.cos(lat2r) * Math.cos(dLng);
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+/** 任意のポリライン上で、指定座標に最も近い区間の方位角を返す。 */
+export function headingOnPolyline(
+  index: PolylineIndex,
+  longitude: number,
+  latitude: number,
+  reverse: boolean,
+): number {
+  const { points } = index;
+  if (points.length < 2) return 0;
+
+  const p: LngLat = [longitude, latitude];
+  let bestIndex = 1;
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (let i = 1; i < points.length; i++) {
+    const distance = distanceSqToSegment(p, points[i - 1], points[i]);
+    if (distance < bestDist) {
+      bestDist = distance;
+      bestIndex = i;
+    }
+  }
+
+  const heading = bearingDegrees(points[bestIndex - 1], points[bestIndex]);
+  return reverse ? (heading + 180) % 360 : heading;
 }
 
 /**
@@ -97,22 +122,12 @@ function distanceSqToSegment(p: LngLat, a: LngLat, b: LngLat): number {
  * 列車アイコンの向き(前後)を示すために使用する。
  */
 export function headingAtPosition(longitude: number, latitude: number, reverse: boolean): number {
-  const { points } = getRouteIndex();
-  if (points.length < 2) return 0;
-
-  const p: LngLat = [longitude, latitude];
-  let bestIndex = 0;
-  let bestDist = Number.POSITIVE_INFINITY;
-  for (let i = 1; i < points.length; i++) {
-    const d = distanceSqToSegment(p, points[i - 1], points[i]);
-    if (d < bestDist) {
-      bestDist = d;
-      bestIndex = i;
-    }
-  }
-
-  const heading = bearingDegrees(points[bestIndex - 1], points[bestIndex]);
-  return reverse ? (heading + 180) % 360 : heading;
+  return headingOnPolyline(
+    getRouteIndex(),
+    longitude,
+    latitude,
+    reverse,
+  );
 }
 
 /**

@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { DataSourceNotice } from "@/components/DataSourceNotice";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { MapPanel } from "@/features/map/MapPanel";
+import { RailwayFilterSheet } from "@/features/railways/RailwayFilterSheet";
+import { useRailwayNetwork } from "@/features/railways/useRailwayNetwork";
 import { ServiceStatusBar } from "@/features/service-status/ServiceStatusBar";
 import { TrainDetailPanel } from "@/features/trains/TrainDetailPanel";
 import { TrainFilterBar } from "@/features/trains/TrainFilterBar";
@@ -34,22 +36,77 @@ export function TrainDashboard() {
     dataUpdatedAt,
     refresh,
   } = useTrainData();
+  const {
+    lines: railwayLines,
+    options: railwayOptions,
+    loading: railwayLoading,
+  } = useRailwayNetwork();
   const now = useNow(1000);
 
   const [filter, setFilter] = useState<TrainFilterKey>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [visibleLineIds, setVisibleLineIds] = useState<Set<string>>(
+    () => new Set(["tokaido"]),
+  );
+  const railwaySelectionReady = useRef(false);
+
+  useEffect(() => {
+    if (railwayLoading || railwaySelectionReady.current) return;
+    const availableIds = new Set(
+      railwayOptions
+        .filter((option) => option.available)
+        .map((option) => option.id),
+    );
+
+    let next = availableIds;
+    try {
+      const stored = window.localStorage.getItem("train-live-map:visible-lines");
+      if (stored) {
+        const parsed = JSON.parse(stored) as unknown;
+        if (Array.isArray(parsed)) {
+          const restored = new Set(
+            parsed.filter(
+              (id): id is string =>
+              typeof id === "string" && availableIds.has(id),
+            ),
+          );
+          next = restored;
+        }
+      }
+    } catch {
+      // 保存値が壊れている場合は、利用可能な路線をすべて表示する。
+    }
+
+    setVisibleLineIds(next);
+    railwaySelectionReady.current = true;
+  }, [railwayLoading, railwayOptions]);
+
+  useEffect(() => {
+    if (!railwaySelectionReady.current) return;
+    window.localStorage.setItem(
+      "train-live-map:visible-lines",
+      JSON.stringify([...visibleLineIds]),
+    );
+  }, [visibleLineIds]);
+
+  const trainsOnVisibleLines = useMemo(
+    () => trains.filter((train) => visibleLineIds.has(train.lineId)),
+    [trains, visibleLineIds],
+  );
 
   const counts = useMemo(() => {
     const result = {} as Record<TrainFilterKey, number>;
     for (const f of TRAIN_FILTERS) {
-      result[f.key] = trains.filter((t) => matchesFilter(t, f.key, now)).length;
+      result[f.key] = trainsOnVisibleLines.filter((t) =>
+        matchesFilter(t, f.key, now),
+      ).length;
     }
     return result;
-  }, [trains, now]);
+  }, [trainsOnVisibleLines, now]);
 
   const filteredTrains = useMemo(
-    () => trains.filter((t) => matchesFilter(t, filter, now)),
-    [trains, filter, now],
+    () => trainsOnVisibleLines.filter((t) => matchesFilter(t, filter, now)),
+    [trainsOnVisibleLines, filter, now],
   );
 
   const selectedTrain = useMemo(
@@ -69,9 +126,18 @@ export function TrainDashboard() {
         {/* 地図(画面の中心) */}
         <MapPanel
           trains={filteredTrains}
+          railwayLines={railwayLines}
+          visibleLineIds={visibleLineIds}
           selectedId={selectedId}
           onSelect={setSelectedId}
           now={now}
+        />
+
+        <RailwayFilterSheet
+          options={railwayOptions}
+          visibleIds={visibleLineIds}
+          onChange={setVisibleLineIds}
+          loading={railwayLoading}
         />
 
         {/* 上部オーバーレイ: 運行情報・エラー */}

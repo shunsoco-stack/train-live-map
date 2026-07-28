@@ -3,6 +3,8 @@
  * データ取得元(モック / GTFS-RT / JR東日本 API)に依存しない共通のドメイン型。
  */
 
+import type { LngLat } from "@/types/geo";
+
 /** 列車の走行方向 */
 export type TrainDirection = "inbound" | "outbound";
 // inbound = 上り(東京方面) / outbound = 下り(横浜・熱海方面)
@@ -29,11 +31,20 @@ export type TrainType = "local" | "rapid" | "special_rapid";
 export interface RouteSegmentEstimate {
   fromFraction: number;
   toFraction: number;
+  /**
+   * 路線全体の固定ジオメトリを使わない路線向けの駅間線形。
+   * 未指定の場合は既存の東海道線ジオメトリを使用する。
+   */
+  coordinates?: LngLat[];
 }
 
 /** 1編成の列車位置情報 */
 export interface TrainLocation {
   id: string;
+  /** アプリ内で一意な路線ID */
+  lineId: string;
+  lineName: string;
+  lineColor: string;
   trainNumber: string;
   direction: TrainDirection;
   destination: string;

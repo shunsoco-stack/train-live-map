@@ -58,6 +58,33 @@ export interface OdptRailway {
   /** 路線名(日本語) */
   "dc:title"?: string;
   "odpt:operator"?: string;
+  "odpt:railwayTitle"?: string | { ja?: string; en?: string };
+  "odpt:color"?: string;
+  "odpt:stationOrder"?: Array<{
+    "odpt:index"?: number;
+    "odpt:station"?: string;
+    "odpt:stationTitle"?: string | { ja?: string; en?: string };
+  }>;
+  "ug:region"?: {
+    type?: "Feature";
+    geometry?: {
+      type?: "LineString" | "MultiLineString";
+      coordinates?: unknown;
+    };
+  };
+}
+
+/** odpt:Station 1 件 */
+export interface OdptStation {
+  "@id"?: string;
+  "@type"?: string;
+  "owl:sameAs"?: string;
+  "dc:title"?: string;
+  "odpt:operator"?: string;
+  "odpt:railway"?: string;
+  "odpt:stationTitle"?: string | { ja?: string; en?: string };
+  "geo:lat"?: number;
+  "geo:long"?: number;
 }
 
 /** odpt:TrainInformation 1 件(運行情報) */

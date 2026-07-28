@@ -25,7 +25,7 @@ export function AppHeader({
           </span>
           <div className="leading-tight">
             <h1 className="text-base font-bold text-rail-text">Train Live Map</h1>
-            <p className="text-[11px] text-rail-muted">東海道線 東京〜横浜</p>
+            <p className="text-[11px] text-rail-muted">関東のJR在来線</p>
           </div>
         </div>
         <DataSourceBadge source={source} />

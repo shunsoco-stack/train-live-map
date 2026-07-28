@@ -5,6 +5,8 @@ import type {
   TrainType,
 } from "@/types/train";
 import type { OdptTrain, OdptTrainInformation } from "@/lib/odpt/types";
+import type { OdptNetworkContext } from "@/lib/odpt/network";
+import { getRailwayCatalogLine } from "@/data/railwayCatalog";
 import { getStationById, STATIONS } from "@/data/stations";
 import {
   coordinateBetweenStations,
@@ -105,6 +107,9 @@ export function odptTrainToTrainLocation(train: OdptTrain): TrainLocation | null
 
   return {
     id,
+    lineId: "tokaido",
+    lineName: "東海道線",
+    lineColor: "#f68b1e",
     trainNumber,
     direction: inferTokaidoDirection(
       {
@@ -129,6 +134,138 @@ export function odptTrainToTrainLocation(train: OdptTrain): TrainLocation | null
     dataAccuracy: accuracy,
     routeSegment,
   };
+}
+
+function genericDirection(value: string | null | undefined): TrainLocation["direction"] {
+  const suffix = value?.split(/[.:]/).pop()?.toLowerCase() ?? "";
+  return suffix === "inbound" ? "inbound" : "outbound";
+}
+
+function networkStationLabel(
+  stationId: string,
+  network: OdptNetworkContext,
+): string {
+  return (
+    network.stationByOdptId.get(stationId)?.name ??
+    stationId.split(".").pop() ??
+    stationId
+  );
+}
+
+function networkDestination(
+  destinations: string[] | undefined,
+  network: OdptNetworkContext,
+): string {
+  if (!destinations || destinations.length === 0) return "—";
+  return destinations.map((id) => networkStationLabel(id, network)).join("・");
+}
+
+/** ODPTの全対象路線の列車を、駅座標と路線カタログを使って変換する。 */
+export function odptTrainsToNetworkTrainLocations(
+  trains: OdptTrain[],
+  network: OdptNetworkContext,
+): TrainLocation[] {
+  const result: TrainLocation[] = [];
+
+  for (const train of trains) {
+    const railwayId = train["odpt:railway"] ?? "";
+    const lineId = network.catalogIdByOdptRailwayId.get(railwayId);
+    if (!lineId) continue;
+
+    const catalog = getRailwayCatalogLine(lineId);
+    const mapLine = network.lineByCatalogId.get(lineId);
+    if (!catalog) continue;
+
+    const fromStationId = train["odpt:fromStation"] ?? null;
+    const toStationId = train["odpt:toStation"] ?? null;
+    const fromPosition = fromStationId
+      ? network.stationByOdptId.get(fromStationId)?.position
+      : undefined;
+    const toPosition = toStationId
+      ? network.stationByOdptId.get(toStationId)?.position
+      : undefined;
+
+    const hasGeo =
+      typeof train["geo:lat"] === "number" &&
+      typeof train["geo:long"] === "number";
+
+    let longitude: number;
+    let latitude: number;
+    let dataAccuracy: DataAccuracy;
+
+    if (hasGeo) {
+      longitude = train["geo:long"] as number;
+      latitude = train["geo:lat"] as number;
+      dataAccuracy = "actual";
+    } else if (fromPosition && toPosition) {
+      longitude = (fromPosition[0] + toPosition[0]) / 2;
+      latitude = (fromPosition[1] + toPosition[1]) / 2;
+      dataAccuracy = "estimated";
+    } else {
+      const position = fromPosition ?? toPosition;
+      if (!position) continue;
+      [longitude, latitude] = position;
+      dataAccuracy = "estimated";
+    }
+
+    const delaySeconds =
+      typeof train["odpt:delay"] === "number" ? train["odpt:delay"] : 0;
+    const delayMinutes = Math.round(delaySeconds / 60);
+    const trainNumber =
+      train["odpt:trainNumber"] ??
+      train["owl:sameAs"]?.split(".").pop() ??
+      "----";
+    const id =
+      train["owl:sameAs"] ??
+      train["@id"] ??
+      `${railwayId}-${trainNumber}`;
+
+    result.push({
+      id,
+      lineId,
+      lineName: catalog.name,
+      lineColor: mapLine?.color ?? catalog.color,
+      trainNumber,
+      direction:
+        lineId === "tokaido"
+          ? inferTokaidoDirection(
+              {
+                odptDirection: train["odpt:railDirection"],
+                fromStationId: fromStationId?.split(".").pop()?.toLowerCase() ?? null,
+                toStationId: toStationId?.split(".").pop()?.toLowerCase() ?? null,
+                destinationStationIds: train["odpt:destinationStation"]?.map(
+                  (id) => id.split(".").pop()?.toLowerCase() ?? null,
+                ),
+                trainNumber,
+              },
+              TOKAIDO_STATION_ORDER,
+            )
+          : genericDirection(train["odpt:railDirection"]),
+      destination: networkDestination(
+        train["odpt:destinationStation"],
+        network,
+      ),
+      trainType: mapTrainType(train["odpt:trainType"]),
+      latitude,
+      longitude,
+      delayMinutes,
+      speedKmh: toPosition ? ESTIMATED_CRUISE_KMH : 0,
+      status: delayMinutes >= 1 ? "delayed" : "running",
+      lastUpdatedAt: train["dc:date"] ?? new Date().toISOString(),
+      stoppedSince: null,
+      dataAccuracy,
+      routeSegment:
+        fromPosition && toPosition
+          ? {
+              fromFraction: 0,
+              toFraction: 1,
+              coordinates: [fromPosition, toPosition],
+            }
+          : null,
+    });
+  }
+
+  return result;
 }
 
 /** 複数の OdptTrain を TrainLocation[] に変換(区間外は除外)。 */

@@ -204,6 +204,9 @@ export class MockTrainLocationProvider implements TrainLocationProvider {
 
       const train: TrainLocation = {
         id: spec.id,
+        lineId: "tokaido",
+        lineName: "東海道線",
+        lineColor: "#f68b1e",
         trainNumber: spec.trainNumber,
         direction: spec.direction,
         destination: spec.destination,

@@ -1,12 +1,16 @@
 import type { ServiceStatus, TrainLocation } from "@/types/train";
 import type { TrainLocationProvider } from "@/providers/TrainLocationProvider";
 import { getOdptConfig, isOdptConfigured, type OdptConfig } from "@/lib/odpt/config";
-import { fetchOdptTrainInformation, fetchOdptTrains } from "@/lib/odpt/api";
+import {
+  fetchOdptTrainInformation,
+  fetchOdptTrainsForOperator,
+} from "@/lib/odpt/api";
 import {
   defaultRailwayLabel,
   odptInformationToServiceStatus,
-  odptTrainsToTrainLocations,
+  odptTrainsToNetworkTrainLocations,
 } from "@/lib/odpt/mapper";
+import { getOdptNetworkContext } from "@/lib/odpt/network";
 import { createLogger } from "@/lib/logger";
 
 /**
@@ -29,11 +33,15 @@ export class OdptTrainLocationProvider implements TrainLocationProvider {
   }
 
   async getTrainLocations(): Promise<TrainLocation[]> {
-    const { data, durationMs } = await fetchOdptTrains(this.config.railway, this.config);
-    const trains = odptTrainsToTrainLocations(data);
+    const [{ data, durationMs }, network] = await Promise.all([
+      fetchOdptTrainsForOperator(this.config.operator, this.config),
+      getOdptNetworkContext(this.config),
+    ]);
+    const trains = odptTrainsToNetworkTrainLocations(data, network);
     this.log.info("列車位置を変換", {
       raw: data.length,
       mapped: trains.length,
+      lines: new Set(trains.map((train) => train.lineId)).size,
       durationMs,
     });
     return trains;
