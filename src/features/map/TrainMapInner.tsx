@@ -445,10 +445,10 @@ function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
   const line = el.querySelector<HTMLElement>("[data-line]");
   const badge = el.querySelector<HTMLElement>("[data-badge]");
   const direction = el.querySelector<HTMLElement>("[data-direction]");
-  const text = pillTextColor(args.color);
+  const text = pillTextColor(args.lineColor);
 
   if (pill) {
-    pill.style.backgroundColor = args.color;
+    pill.style.backgroundColor = args.lineColor;
     pill.style.borderColor = args.selected ? "#ffffff" : args.ring;
     pill.style.color = text;
     pill.style.transform = args.selected ? "scale(1.18)" : "scale(1)";
@@ -459,7 +459,9 @@ function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
   // 矢印を線路の進行方向へ回転(SVG は北向きなので方位角をそのまま適用)
   if (heading) heading.style.transform = `rotate(${args.heading}deg)`;
   if (num) num.textContent = args.trainNumber;
-  if (line) line.style.backgroundColor = args.lineColor;
+  // マーカー本体は路線カラー、下端の細線と右上バッジは運行状態カラー。
+  // 路線の識別と、遅延・停止などの状態識別を同時に保つ。
+  if (line) line.style.backgroundColor = args.color;
   if (direction) {
     const isInbound = args.direction === "inbound";
     direction.textContent = isInbound ? "↑ 上り" : "↓ 下り";
@@ -476,9 +478,25 @@ function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
 
 /** 背景色に応じて文字色(黒/白)を選ぶ。可読性確保。 */
 function pillTextColor(bg: string): string {
-  // 明るいオレンジ・黄色系は黒文字、それ以外は白
-  const normalized = bg.toLowerCase();
-  return normalized === "#f68b1e" || normalized === "#eab308"
-    ? "#1a1a1a"
-    : "#ffffff";
+  const normalized = bg.trim().replace(/^#/, "");
+  const hex =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((part) => `${part}${part}`)
+          .join("")
+      : normalized;
+
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return "#ffffff";
+
+  const channels = [0, 2, 4].map((offset) => {
+    const value = Number.parseInt(hex.slice(offset, offset + 2), 16) / 255;
+    return value <= 0.04045
+      ? value / 12.92
+      : ((value + 0.055) / 1.055) ** 2.4;
+  });
+  const luminance =
+    0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+
+  return luminance > 0.42 ? "#1a1a1a" : "#ffffff";
 }
