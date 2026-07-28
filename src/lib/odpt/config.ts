@@ -6,7 +6,7 @@
  */
 
 export interface OdptConfig {
-  /** API のベース URL(例: https://api.odpt.org/api/v4) */
+  /** API のベース URL(例: https://api-challenge.odpt.org/api/v4) */
   baseUrl: string;
   /** アクセストークン(acl:consumerKey)。未設定なら空文字。 */
   accessToken: string;
@@ -20,7 +20,8 @@ export interface OdptConfig {
   retries: number;
 }
 
-const DEFAULT_BASE_URL = "https://api.odpt.org/api/v4";
+// JR 東日本の列車ロケーション情報はチャレンジ2026限定データ。
+const DEFAULT_BASE_URL = "https://api-challenge.odpt.org/api/v4";
 const DEFAULT_RAILWAY = "odpt.Railway:JR-East.Tokaido";
 const DEFAULT_OPERATOR = "odpt.Operator:JR-East";
 

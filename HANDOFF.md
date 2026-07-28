@@ -278,7 +278,7 @@ MapLibre は `window` を参照するため、`MapPanel.tsx` で `next/dynamic(.
 
 | エンドポイント | 説明 |
 | --- | --- |
-| `GET /api/trains` | `{ trains, generatedAt, isMock, source, fallback, notice }` |
+| `GET /api/trains` | `{ trains, generatedAt, dataUpdatedAt, isMock, source, fallback, notice }` |
 | `GET /api/service-status` | `{ serviceStatus, isMock, source, fallback, notice }` |
 | `GET /api/dev/debug` | 接続診断（**本番は 404**） |
 
@@ -289,19 +289,21 @@ MapLibre は `window` を参照するため、`MapPanel.tsx` で `next/dynamic(.
 ## 8. ODPT 実データ接続（未完了・要対応）
 
 ### 現状
-**コードは完成していますが、アクセストークンが未設定のためモックで動作中です。**
+通常ODPTトークンの疎通には成功しましたが、JR東日本の列車位置はチャレンジ2026限定データです。チャレンジ用APIとチャレンジ用トークンが必要です。
 
 ### 接続手順
-1. https://developer.odpt.org/ で無料ユーザー登録 → アクセストークン発行
-2. `bash scripts/set-odpt-token.sh` でトークンを設定（`.env.local` に権限600で保存）
-3. `npm run dev` で再起動 → 自動的に実データへ切替
+1. https://developer.odpt.org/ で無料ユーザー登録
+2. 公共交通オープンデータチャレンジ2026へエントリーし、限定ライセンスへ同意
+3. チャレンジ用アクセストークンを発行
+4. `bash scripts/set-odpt-token.sh` でトークンを設定（`.env.local` に権限600で保存）
+5. `npm run dev` で再起動 → 自動的に実データへ切替
 
 ### 環境変数（すべて `.env.local`。`.env.example` 参照）
 
 | 変数 | 既定値 | 説明 |
 | --- | --- | --- |
-| `ODPT_ACCESS_TOKEN` | (空) | **必須**。未設定ならモック動作 |
-| `ODPT_API_BASE_URL` | `https://api.odpt.org/api/v4` | |
+| `ODPT_ACCESS_TOKEN` | (空) | **必須**。チャレンジ用トークン。未設定ならモック動作 |
+| `ODPT_API_BASE_URL` | `https://api-challenge.odpt.org/api/v4` | JR東日本はチャレンジ限定API |
 | `ODPT_RAILWAY` | `odpt.Railway:JR-East.Tokaido` | 対象路線 |
 | `ODPT_OPERATOR` | `odpt.Operator:JR-East` | 対象事業者 |
 | `ODPT_TIMEOUT_MS` | `8000` | |
@@ -311,11 +313,13 @@ MapLibre は `window` を参照するため、`MapPanel.tsx` で `next/dynamic(.
 
 ### ⚠️ 未検証の重要事項
 
-**JR東日本 東海道線の「列車位置」が ODPT で実際に取得できるかは未確認です。**
-理由: 開発環境から外部APIへ到達できず、実トークンでの疎通確認ができていません。
+**通常ODPT APIへの認証成功は本番で確認済みですが、通常APIでは対象列車が0件でした。**
+公式カタログで、JR東日本の列車位置はチャレンジ2026限定API
+（`https://api-challenge.odpt.org/api/v4`）とチャレンジ用トークンが必要であることを確認済みです。
 
-- 提供内容は事業者・時期により変動し、**追加の申請・同意が必要な場合**があります
-- 路線 ID (`odpt.Railway:JR-East.Tokaido`) が正しいかも未検証です
+- チャレンジ2026へのエントリーと限定ライセンスへの同意が必要
+- 路線 ID は `odpt.Railway:JR-East.Tokaido`
+- 実データの最終疎通はチャレンジ用トークン設定後に確認する
 
 そのため **`/dev/debug` に「接続診断」を実装済み**です。トークン設定後にここを見れば切り分けできます:
 

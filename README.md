@@ -175,12 +175,12 @@ interface TrainLocationProvider {
 ### ODPT とは（API 調査サマリ）
 
 - **提供元**: 公共交通オープンデータ協議会（公共交通オープンデータセンター / ODPT）。
-- **利用可能な API（v4）**: `https://api.odpt.org/api/v4/`
+- **本アプリで利用する API（v4）**: `https://api-challenge.odpt.org/api/v4/`
   - `odpt:Train` … 列車位置（**駅間ベース**。多くの事業者で緯度経度は持たない）
   - `odpt:TrainInformation` … 運行情報（遅延・見合わせ等）
   - ほかに `odpt:Railway` / `odpt:Station` / `odpt:TrainTimetable` など。
 - **認証方法**: 発行されたアクセストークンをクエリ `acl:consumerKey=<TOKEN>` に付与。
-- **東海道線が対象か**: JR 東日本の列車ロケーション情報（`r_train_location-jreast`）が公開されており、路線 `odpt.Railway:JR-East.Tokaido` が対象候補です。ただし**区間・時間帯によって提供有無が変動**するため、実トークンでの確認が必要です（本アプリは空応答・未提供でも安全にフォールバックします）。
+- **東海道線が対象か**: JR 東日本の列車ロケーション情報が**チャレンジ2026限定データ**として公開されており、路線 `odpt.Railway:JR-East.Tokaido` が対象です。通常APIと通常トークンでは取得できないため、チャレンジへのエントリーとチャレンジ用トークンが必要です（本アプリは空応答・未提供でも安全にフォールバックします）。
 - **東京〜横浜が取得できるか**: 取得できた列車のうち、`fromStation` / `toStation` が対象 5 駅（東京・新橋・品川・川崎・横浜）に紐付くものだけを表示します。区間外の列車は除外します。
 - **レスポンス例（`odpt:Train`）**:
 
@@ -207,8 +207,9 @@ interface TrainLocationProvider {
 ### 登録・アクセストークン取得方法
 
 1. ODPT 開発者サイト <https://developer.odpt.org/> にアクセスし、**無料のユーザー登録**を行う。
-2. ログイン後、アプリケーションを登録して**アクセストークン（consumerKey）を発行**する。
-3. JR 東日本など一部データは、利用にあたり**追加の同意・申請**が必要な場合があります。データカタログ <https://ckan.odpt.org/> で対象データセットの提供条件を確認してください。
+2. ログイン後、**公共交通オープンデータチャレンジ2026へエントリー**し、限定ライセンスへ同意する。
+3. チャレンジ用アプリケーションを登録して**チャレンジ用アクセストークン（consumerKey）を発行**する。
+4. データカタログ <https://ckan.odpt.org/dataset/jreast__r_train_location> でJR東日本データの提供条件を確認する。
 
 ### 環境変数設定
 
@@ -232,7 +233,7 @@ cp .env.example .env.local
 ODPT_ACCESS_TOKEN=発行されたトークン
 
 # 任意（未設定なら既定値）
-# ODPT_API_BASE_URL=https://api.odpt.org/api/v4
+# ODPT_API_BASE_URL=https://api-challenge.odpt.org/api/v4
 # ODPT_RAILWAY=odpt.Railway:JR-East.Tokaido
 # ODPT_OPERATOR=odpt.Operator:JR-East
 # ODPT_TIMEOUT_MS=8000
@@ -246,6 +247,7 @@ ODPT_ACCESS_TOKEN=発行されたトークン
 - `ODPT_ACCESS_TOKEN` 未設定 … 最初からモックで動作（「現在モックデータを表示しています(ODPT 未設定)」）。
 - ODPT 取得成功 … 実データを表示（ヘッダーに「ODPT ライブ(推定位置)」）。
 - ODPT 取得失敗（HTTP エラー・タイムアウト・解析失敗など）… **自動でモックへフォールバック**し、「現在モックデータを表示しています(実データの取得に失敗したため)」を表示。
+- ODPT の対象列車が 0 件 … **自動でモックへフォールバック**し、対象列車を取得できなかった旨を表示。
 - サービス層（`src/services/trainLocationService.ts`）が優先順位とフォールバックを一元管理します。UI の変更は不要です。
 
 ### デバッグ画面（開発時のみ）

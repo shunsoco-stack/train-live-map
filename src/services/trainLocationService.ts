@@ -65,6 +65,8 @@ export interface ServiceStatusResult {
 
 const MOCK_NOTICE_NO_TOKEN = "現在モックデータを表示しています(ODPT 未設定)。";
 const MOCK_NOTICE_FALLBACK = "現在モックデータを表示しています(実データの取得に失敗したため)。";
+const MOCK_NOTICE_EMPTY =
+  "現在モックデータを表示しています(ODPTから対象列車を取得できなかったため)。";
 
 async function withProvider<T>(
   real: TrainLocationProvider | null,
@@ -95,6 +97,19 @@ export const trainLocationService = {
     const { value, source, fallback, notice } = await withProvider(real, (p) =>
       p.getTrainLocations(),
     );
+
+    if (source === "odpt" && value.length === 0) {
+      log.warn("ODPTの対象列車が0件、モックへフォールバック");
+      const trains = await getMockProvider().getTrainLocations();
+      return {
+        trains,
+        source: "mock",
+        isMock: true,
+        fallback: true,
+        notice: MOCK_NOTICE_EMPTY,
+      };
+    }
+
     return { trains: value, source, isMock: source === "mock", fallback, notice };
   },
 
