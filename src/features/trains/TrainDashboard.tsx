@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { AdSenseBanner } from "@/components/AdSenseBanner";
 import { AppHeader } from "@/components/AppHeader";
 import { DataSourceNotice } from "@/components/DataSourceNotice";
 import { ErrorNotice } from "@/components/ErrorNotice";
@@ -166,6 +167,8 @@ export function TrainDashboard() {
           </div>
         )}
       </main>
+
+      <AdSenseBanner />
 
       {/* 詳細ボトムシート */}
       <TrainDetailPanel train={selectedTrain} onClose={() => setSelectedId(null)} />
