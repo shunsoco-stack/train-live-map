@@ -6,7 +6,10 @@ import type {
 } from "@/types/train";
 import type { OdptTrain, OdptTrainInformation } from "@/lib/odpt/types";
 import { getStationById, STATIONS } from "@/data/stations";
-import { coordinateBetweenStations } from "@/lib/routeGeometry";
+import {
+  coordinateBetweenStations,
+  stationFractionById,
+} from "@/lib/routeGeometry";
 import { inferTokaidoDirection } from "@/lib/odpt/direction";
 
 /**
@@ -60,6 +63,12 @@ export function odptTrainToTrainLocation(train: OdptTrain): TrainLocation | null
   const fromLocal = odptStationToLocalId(train["odpt:fromStation"]);
   const toLocal = odptStationToLocalId(train["odpt:toStation"]);
   const trainNumber = train["odpt:trainNumber"] ?? train["owl:sameAs"]?.split(".").pop() ?? "----";
+  const fromFraction = fromLocal ? stationFractionById(fromLocal) : null;
+  const toFraction = toLocal ? stationFractionById(toLocal) : null;
+  const routeSegment =
+    fromFraction !== null && toFraction !== null
+      ? { fromFraction, toFraction }
+      : null;
 
   let latitude: number;
   let longitude: number;
@@ -118,6 +127,7 @@ export function odptTrainToTrainLocation(train: OdptTrain): TrainLocation | null
     // ODPT Train は駅間停止の開始時刻を持たないため停止時間は不明(null)
     stoppedSince: null,
     dataAccuracy: accuracy,
+    routeSegment,
   };
 }
 

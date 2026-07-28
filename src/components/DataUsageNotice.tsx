@@ -90,6 +90,10 @@ export function DataUsageNotice({ source }: DataUsageNoticeProps) {
                   正確性・完全性は保証されません。
                 </p>
                 <p>
+                  列車アイコンの移動は駅間情報から推定したアニメーションであり、
+                  GPSによる実測位置・軌跡ではありません。
+                </p>
+                <p>
                   アプリの内容について、公共交通事業者へ直接問い合わせないでください。
                 </p>
               </div>

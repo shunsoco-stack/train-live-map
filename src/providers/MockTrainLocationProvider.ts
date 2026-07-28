@@ -216,6 +216,7 @@ export class MockTrainLocationProvider implements TrainLocationProvider {
         lastUpdatedAt: now.toISOString(),
         stoppedSince,
         dataAccuracy: "mock",
+        routeSegment: { fromFraction: fromF, toFraction: toF },
       };
       return train;
     });

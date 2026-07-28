@@ -25,6 +25,12 @@ export type DataAccuracy =
 export type TrainType = "local" | "rapid" | "special_rapid";
 // local=普通 / rapid=快速 / special_rapid=特別快速
 
+/** ODPT が示す現在の駅間を、路線全体の fraction(0〜1)で表した範囲。 */
+export interface RouteSegmentEstimate {
+  fromFraction: number;
+  toFraction: number;
+}
+
 /** 1編成の列車位置情報 */
 export interface TrainLocation {
   id: string;
@@ -42,6 +48,8 @@ export interface TrainLocation {
   /** ISO8601 文字列。停止し始めた時刻。停止していない場合は null */
   stoppedSince: string | null;
   dataAccuracy: DataAccuracy;
+  /** 推定アニメーションが越えてはいけない現在の駅間。 */
+  routeSegment: RouteSegmentEstimate | null;
 }
 
 /** 路線全体の運行情報 */

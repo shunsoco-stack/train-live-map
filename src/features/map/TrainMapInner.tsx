@@ -8,7 +8,12 @@ import { STATIONS } from "@/data/stations";
 import { ROUTE_LINE } from "@/data/routeLine";
 import { MAP_STYLE } from "@/features/map/mapStyle";
 import { getStatusAppearance } from "@/lib/trainStatus";
-import { headingAtPosition } from "@/lib/routeGeometry";
+import {
+  coordinateAtFraction,
+  getRouteIndex,
+  headingAtPosition,
+} from "@/lib/routeGeometry";
+import { advanceEstimatedFraction } from "@/lib/trainMotion";
 
 interface TrainMapInnerProps {
   trains: TrainLocation[];
@@ -16,6 +21,15 @@ interface TrainMapInnerProps {
   onSelect: (id: string) => void;
   /** 色再計算のための現在時刻(1秒ごとに更新される) */
   now: Date;
+}
+
+interface TrainMotionState {
+  currentFraction: number;
+  fromFraction: number;
+  toFraction: number;
+  speedKmh: number;
+  marker: maplibregl.Marker;
+  headingElement: HTMLElement | null;
 }
 
 // 東京〜横浜が収まる初期表示範囲(バウンディングボックス)
@@ -38,6 +52,7 @@ export default function TrainMapInner({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const loadedRef = useRef(false);
   const trainMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
+  const trainMotionRef = useRef<Map<string, TrainMotionState>>(new Map());
   // 最新の onSelect を参照するための ref(マーカー生成時のクロージャ固定を回避)
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
@@ -47,6 +62,7 @@ export default function TrainMapInner({
     if (!containerRef.current || mapRef.current) return;
     // クリーンアップ時に参照する Map を固定
     const trainMarkers = trainMarkersRef.current;
+    const trainMotions = trainMotionRef.current;
 
     const map = new maplibregl.Map({
       container: containerRef.current,
@@ -102,7 +118,51 @@ export default function TrainMapInner({
       mapRef.current = null;
       loadedRef.current = false;
       trainMarkers.clear();
+      trainMotions.clear();
     };
+  }, []);
+
+  // --- ODPT の駅間情報を越えない範囲で、推定位置を滑らかに進める ---
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    let animationFrame = 0;
+    let previousTimestamp: number | null = null;
+    const routeLengthMeters = getRouteIndex().totalLength;
+
+    const animate = (timestamp: number) => {
+      if (previousTimestamp !== null) {
+        const elapsedMs = Math.min(100, timestamp - previousTimestamp);
+
+        for (const motion of trainMotionRef.current.values()) {
+          const nextFraction = advanceEstimatedFraction({
+            currentFraction: motion.currentFraction,
+            fromFraction: motion.fromFraction,
+            toFraction: motion.toFraction,
+            speedKmh: motion.speedKmh,
+            routeLengthMeters,
+            elapsedMs,
+          });
+
+          if (nextFraction !== motion.currentFraction) {
+            motion.currentFraction = nextFraction;
+            const [longitude, latitude] = coordinateAtFraction(nextFraction);
+            motion.marker.setLngLat([longitude, latitude]);
+            if (motion.headingElement) {
+              const reverse = motion.toFraction < motion.fromFraction;
+              motion.headingElement.style.transform =
+                `rotate(${headingAtPosition(longitude, latitude, reverse)}deg)`;
+            }
+          }
+        }
+      }
+
+      previousTimestamp = timestamp;
+      animationFrame = window.requestAnimationFrame(animate);
+    };
+
+    animationFrame = window.requestAnimationFrame(animate);
+    return () => window.cancelAnimationFrame(animationFrame);
   }, []);
 
   // --- 列車マーカーの更新 ---
@@ -135,6 +195,57 @@ export default function TrainMapInner({
         marker.setLngLat([train.longitude, train.latitude]);
       }
 
+      const routeSegment = train.routeSegment;
+      const shouldAnimate =
+        train.dataAccuracy === "estimated" &&
+        appearance.level === "running" &&
+        train.speedKmh > 0 &&
+        routeSegment !== null &&
+        routeSegment.fromFraction !== routeSegment.toFraction;
+
+      if (shouldAnimate && routeSegment) {
+        const existingMotion = trainMotionRef.current.get(train.id);
+        const segmentChanged =
+          !existingMotion ||
+          existingMotion.fromFraction !== routeSegment.fromFraction ||
+          existingMotion.toFraction !== routeSegment.toFraction;
+
+        let currentFraction =
+          (routeSegment.fromFraction + routeSegment.toFraction) / 2;
+        if (existingMotion && segmentChanged) {
+          const minFraction = Math.min(
+            routeSegment.fromFraction,
+            routeSegment.toFraction,
+          );
+          const maxFraction = Math.max(
+            routeSegment.fromFraction,
+            routeSegment.toFraction,
+          );
+          currentFraction = Math.min(
+            maxFraction,
+            Math.max(minFraction, existingMotion.currentFraction),
+          );
+        } else if (existingMotion) {
+          currentFraction = existingMotion.currentFraction;
+        }
+
+        const [animatedLongitude, animatedLatitude] =
+          coordinateAtFraction(currentFraction);
+        marker.setLngLat([animatedLongitude, animatedLatitude]);
+        trainMotionRef.current.set(train.id, {
+          currentFraction,
+          fromFraction: routeSegment.fromFraction,
+          toFraction: routeSegment.toFraction,
+          speedKmh: train.speedKmh,
+          marker,
+          headingElement:
+            marker.getElement().querySelector<HTMLElement>("[data-heading]"),
+        });
+      } else {
+        trainMotionRef.current.delete(train.id);
+        marker.setLngLat([train.longitude, train.latitude]);
+      }
+
       const directionLabel = train.direction === "inbound" ? "上り" : "下り";
       styleTrainElement(marker.getElement(), {
         color: appearance.color,
@@ -157,6 +268,7 @@ export default function TrainMapInner({
       if (!seen.has(id)) {
         marker.remove();
         markers.delete(id);
+        trainMotionRef.current.delete(id);
       }
     }
   }, [trains, selectedId, now]);
