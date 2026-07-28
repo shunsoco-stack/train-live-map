@@ -231,12 +231,15 @@ async function loadNetwork(config: OdptConfig): Promise<OdptNetworkContext> {
 
     for (const catalog of catalogs) {
       availableIds.add(catalog.id);
-      const lineCoordinates = isCombinedSaikyoKawagoe
+      const clippedCoordinates = isCombinedSaikyoKawagoe
         ? clipKawagoePaths(
             coordinates,
             catalog.id === "kawagoe" ? "kawagoe" : "saikyo",
           )
         : coordinates;
+      // 提供される線形の点順によって分割できない場合も、選択自体は可能にする。
+      const lineCoordinates =
+        clippedCoordinates.length > 0 ? clippedCoordinates : coordinates;
       if (lineCoordinates.length === 0) continue;
 
       const existing = lineByCatalogId.get(catalog.id);

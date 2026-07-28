@@ -177,17 +177,11 @@ export function odptTrainsToNetworkTrainLocations(
     const toPosition = toStationId
       ? network.stationByOdptId.get(toStationId)?.position
       : undefined;
-    const destinationPositions = (train["odpt:destinationStation"] ?? [])
-      .map((id) => network.stationByOdptId.get(id)?.position)
-      .filter((position): position is [number, number] => Boolean(position));
-
     let lineId = network.catalogIdByOdptRailwayId.get(railwayId);
     if (railwayId.endsWith(".Kawagoe")) {
-      const reachesKawagoeSection = [
-        fromPosition,
-        toPosition,
-        ...destinationPositions,
-      ].some(
+      // ODPTでは埼京線と川越線が1つのKawagoe系統として返る。
+      // 行先ではなく現在の駅間で分け、直通列車が全区間「川越線」になるのを防ぐ。
+      const reachesKawagoeSection = [fromPosition, toPosition].some(
         (position) =>
           position !== undefined &&
           position[0] < 139.62 &&
