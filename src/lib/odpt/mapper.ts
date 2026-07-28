@@ -169,13 +169,6 @@ export function odptTrainsToNetworkTrainLocations(
 
   for (const train of trains) {
     const railwayId = train["odpt:railway"] ?? "";
-    const lineId = network.catalogIdByOdptRailwayId.get(railwayId);
-    if (!lineId) continue;
-
-    const catalog = getRailwayCatalogLine(lineId);
-    const mapLine = network.lineByCatalogId.get(lineId);
-    if (!catalog) continue;
-
     const fromStationId = train["odpt:fromStation"] ?? null;
     const toStationId = train["odpt:toStation"] ?? null;
     const fromPosition = fromStationId
@@ -184,6 +177,29 @@ export function odptTrainsToNetworkTrainLocations(
     const toPosition = toStationId
       ? network.stationByOdptId.get(toStationId)?.position
       : undefined;
+    const destinationPositions = (train["odpt:destinationStation"] ?? [])
+      .map((id) => network.stationByOdptId.get(id)?.position)
+      .filter((position): position is [number, number] => Boolean(position));
+
+    let lineId = network.catalogIdByOdptRailwayId.get(railwayId);
+    if (railwayId.endsWith(".Kawagoe")) {
+      const reachesKawagoeSection = [
+        fromPosition,
+        toPosition,
+        ...destinationPositions,
+      ].some(
+        (position) =>
+          position !== undefined &&
+          position[0] < 139.62 &&
+          position[1] > 35.87,
+      );
+      lineId = reachesKawagoeSection ? "kawagoe" : "saikyo";
+    }
+    if (!lineId) continue;
+
+    const catalog = getRailwayCatalogLine(lineId);
+    const mapLine = network.lineByCatalogId.get(lineId);
+    if (!catalog) continue;
 
     const hasGeo =
       typeof train["geo:lat"] === "number" &&

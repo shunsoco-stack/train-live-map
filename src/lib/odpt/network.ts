@@ -132,6 +132,34 @@ function fallbackPathFromStations(
   return path.length >= 2 ? [simplifyPath(path)] : [];
 }
 
+function isKawagoeSection([longitude, latitude]: LngLat): boolean {
+  return longitude < 139.62 && latitude > 35.87;
+}
+
+function clipKawagoePaths(
+  paths: LngLat[][],
+  section: "saikyo" | "kawagoe",
+): LngLat[][] {
+  return paths
+    .map((path) => {
+      const selected = path
+        .map((position, index) => ({
+          index,
+          matches:
+            section === "kawagoe"
+              ? isKawagoeSection(position)
+              : !isKawagoeSection(position),
+        }))
+        .filter((entry) => entry.matches)
+        .map((entry) => entry.index);
+      if (selected.length === 0) return [];
+      const start = Math.max(0, Math.min(...selected) - 1);
+      const end = Math.min(path.length - 1, Math.max(...selected) + 1);
+      return path.slice(start, end + 1);
+    })
+    .filter((path) => path.length >= 2);
+}
+
 function fallbackContext(): OdptNetworkContext {
   const catalog = getRailwayCatalogLine("tokaido");
   if (!catalog) throw new Error("東海道線の定義が見つかりません");
@@ -181,32 +209,50 @@ async function loadNetwork(config: OdptConfig): Promise<OdptNetworkContext> {
       railway["odpt:railwayTitle"],
       railway["dc:title"] ?? railwayId.split(".").pop() ?? "",
     );
-    const catalog = findRailwayCatalogLine(railwayId, title);
-    if (!catalog) continue;
-
-    catalogIdByOdptRailwayId.set(railwayId, catalog.id);
-    availableIds.add(catalog.id);
+    const matchedCatalog = findRailwayCatalogLine(railwayId, title);
+    if (!matchedCatalog) continue;
 
     const paths = regionPaths(railway);
     const coordinates =
       paths.length > 0
         ? paths
         : fallbackPathFromStations(railway, stationByOdptId);
-    if (coordinates.length === 0) continue;
+    const isCombinedSaikyoKawagoe = railwayId.endsWith(".Kawagoe");
+    const catalogs = isCombinedSaikyoKawagoe
+      ? ["saikyo", "kawagoe"]
+          .map((id) => getRailwayCatalogLine(id))
+          .filter((item): item is NonNullable<typeof item> => Boolean(item))
+      : [matchedCatalog];
 
-    const existing = lineByCatalogId.get(catalog.id);
-    if (existing) {
-      existing.coordinates.push(...coordinates);
-      continue;
+    catalogIdByOdptRailwayId.set(
+      railwayId,
+      isCombinedSaikyoKawagoe ? "saikyo" : matchedCatalog.id,
+    );
+
+    for (const catalog of catalogs) {
+      availableIds.add(catalog.id);
+      const lineCoordinates = isCombinedSaikyoKawagoe
+        ? clipKawagoePaths(
+            coordinates,
+            catalog.id === "kawagoe" ? "kawagoe" : "saikyo",
+          )
+        : coordinates;
+      if (lineCoordinates.length === 0) continue;
+
+      const existing = lineByCatalogId.get(catalog.id);
+      if (existing) {
+        existing.coordinates.push(...lineCoordinates);
+        continue;
+      }
+
+      lineByCatalogId.set(catalog.id, {
+        id: catalog.id,
+        odptId: railwayId,
+        name: catalog.name,
+        color: railway["odpt:color"] || catalog.color,
+        coordinates: lineCoordinates,
+      });
     }
-
-    lineByCatalogId.set(catalog.id, {
-      id: catalog.id,
-      odptId: railwayId,
-      name: catalog.name,
-      color: railway["odpt:color"] || catalog.color,
-      coordinates,
-    });
   }
 
   // APIで取得できない環境でも、東海道線だけは既存の線形で表示可能にする。
