@@ -142,6 +142,7 @@ export default function TrainMapInner({
         symbol: appearance.symbol,
         label: `${train.trainNumber} ${directionLabel} ${train.destination}行 ${appearance.label}`,
         trainNumber: train.trainNumber,
+        direction: train.direction,
         selected: isSelected,
         heading: headingAtPosition(
           train.longitude,
@@ -206,11 +207,14 @@ function createTrainElement(): HTMLDivElement {
   el.className = "cursor-pointer";
   el.innerHTML = `
     <div data-pill class="relative flex items-center gap-1 rounded-full border-2 pl-1 pr-2 py-1 shadow-lg transition-transform">
-      <span data-heading class="block h-[13px] w-[13px] shrink-0">${HEADING_ARROW_SVG}</span>
+      <span data-heading
+            class="flex h-[19px] w-[19px] shrink-0 items-center justify-center rounded-full bg-white/95 p-[3px] text-black shadow-sm">${HEADING_ARROW_SVG}</span>
       <span data-icon class="flex shrink-0 items-center">${TRAIN_ICON_SVG}</span>
       <span data-num class="text-[11px] leading-none font-semibold whitespace-nowrap"></span>
       <span data-badge
             class="absolute -right-1.5 -top-1.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full border text-[9px] font-bold leading-none"></span>
+      <span data-direction
+            class="pointer-events-none absolute left-1/2 top-[calc(100%+2px)] -translate-x-1/2 rounded-full border px-1.5 py-0.5 text-[10px] font-black leading-none text-white whitespace-nowrap shadow-md"></span>
     </div>
   `;
   return el;
@@ -222,6 +226,7 @@ interface TrainStyleArgs {
   symbol: string;
   label: string;
   trainNumber: string;
+  direction: TrainLocation["direction"];
   selected: boolean;
   /** 進行方向の方位角(度)。北=0。 */
   heading: number;
@@ -233,6 +238,7 @@ function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
   const heading = el.querySelector<HTMLElement>("[data-heading]");
   const num = el.querySelector<HTMLElement>("[data-num]");
   const badge = el.querySelector<HTMLElement>("[data-badge]");
+  const direction = el.querySelector<HTMLElement>("[data-direction]");
   const text = pillTextColor(args.color);
 
   if (pill) {
@@ -247,6 +253,12 @@ function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
   // 矢印を線路の進行方向へ回転(SVG は北向きなので方位角をそのまま適用)
   if (heading) heading.style.transform = `rotate(${args.heading}deg)`;
   if (num) num.textContent = args.trainNumber;
+  if (direction) {
+    const isInbound = args.direction === "inbound";
+    direction.textContent = isInbound ? "↑ 上り" : "↓ 下り";
+    direction.style.backgroundColor = isInbound ? "#1e3a8a" : "#7c2d12";
+    direction.style.borderColor = isInbound ? "#93c5fd" : "#fdba74";
+  }
   if (badge) {
     badge.textContent = args.symbol;
     badge.style.backgroundColor = args.ring;
