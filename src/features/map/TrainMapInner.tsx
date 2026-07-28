@@ -38,6 +38,10 @@ const INITIAL_BOUNDS: [[number, number], [number, number]] = [
   [139.8, 35.7], // 北東
 ];
 
+// 実速度相当ではスマホ画面上の移動がほぼ見えないため、表示用の推定移動だけを少し強調する。
+// 詳細画面の速度値や、駅間を越えない制限には影響しない。
+const ESTIMATED_MOTION_SPEED_MULTIPLIER = 3;
+
 /**
  * MapLibre GL による地図描画コンポーネント。
  * SSR では読み込まれない(dynamic import + ssr:false)前提のクライアント専用。
@@ -236,7 +240,7 @@ export default function TrainMapInner({
           currentFraction,
           fromFraction: routeSegment.fromFraction,
           toFraction: routeSegment.toFraction,
-          speedKmh: train.speedKmh,
+          speedKmh: train.speedKmh * ESTIMATED_MOTION_SPEED_MULTIPLIER,
           marker,
           headingElement:
             marker.getElement().querySelector<HTMLElement>("[data-heading]"),
