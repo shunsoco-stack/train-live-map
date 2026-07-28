@@ -58,7 +58,11 @@ export function TrainDashboard() {
         .map((option) => option.id),
     );
 
-    let next = availableIds;
+    // 500本以上を一度に描画するとスマホでは見づらいため、初回は東海道線だけ。
+    // 「すべて表示」から全路線へ即座に切り替えられる。
+    let next = availableIds.has("tokaido")
+      ? new Set(["tokaido"])
+      : new Set([...availableIds].slice(0, 1));
     try {
       const stored = window.localStorage.getItem("train-live-map:visible-lines");
       if (stored) {
