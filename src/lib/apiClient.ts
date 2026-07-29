@@ -3,6 +3,11 @@ import type {
   TrainsApiResponse,
 } from "@/types/train";
 import type { RailwaysApiResponse } from "@/types/railway";
+import type {
+  CommunityReportsApiResponse,
+  CommunityReportSubmitResponse,
+  CommunityReportVote,
+} from "@/types/community";
 
 /**
  * フロントエンドから Next.js の Route Handler を呼び出すクライアント。
@@ -31,4 +36,38 @@ export function fetchRailways(
   signal?: AbortSignal,
 ): Promise<RailwaysApiResponse> {
   return getJson<RailwaysApiResponse>("/api/railways", signal);
+}
+
+export function fetchCommunityReports(
+  signal?: AbortSignal,
+): Promise<CommunityReportsApiResponse> {
+  return getJson<CommunityReportsApiResponse>(
+    "/api/community-reports",
+    signal,
+  );
+}
+
+export async function submitCommunityReport(
+  vote: CommunityReportVote,
+  reporterId: string,
+): Promise<CommunityReportSubmitResponse> {
+  const response = await fetch("/api/community-reports", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Community-Reporter": reporterId,
+    },
+    body: JSON.stringify(vote),
+  });
+  const data = (await response.json()) as
+    | CommunityReportSubmitResponse
+    | { error?: string };
+  if (!response.ok) {
+    throw new Error(
+      "error" in data && data.error
+        ? data.error
+        : `投票に失敗しました (${response.status})`,
+    );
+  }
+  return data as CommunityReportSubmitResponse;
 }

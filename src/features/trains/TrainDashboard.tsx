@@ -8,6 +8,7 @@ import { BrowserGuidance } from "@/components/BrowserGuidance";
 import { DataSourceNotice } from "@/components/DataSourceNotice";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { defaultVisibleRailwayIds } from "@/data/railwayCatalog";
+import { CommunityReportSheet } from "@/features/community/CommunityReportSheet";
 import { MapPanel } from "@/features/map/MapPanel";
 import { RailwayFilterSheet } from "@/features/railways/RailwayFilterSheet";
 import { useRailwayNetwork } from "@/features/railways/useRailwayNetwork";
@@ -173,6 +174,11 @@ export function TrainDashboard() {
           visibleIds={visibleLineIds}
           onChange={setVisibleLineIds}
           loading={railwayLoading}
+        />
+
+        <CommunityReportSheet
+          options={railwayOptions}
+          visibleLineIds={visibleLineIds}
         />
 
         {/* 上部オーバーレイ: 運行情報・エラー */}
