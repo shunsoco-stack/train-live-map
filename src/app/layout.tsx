@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import Script from "next/script";
+import "@fontsource/m-plus-rounded-1c/400.css";
+import "@fontsource/m-plus-rounded-1c/700.css";
+import "@fontsource/m-plus-rounded-1c/800.css";
 import { adsenseClientId } from "@/lib/adsense";
 import "./globals.css";
 

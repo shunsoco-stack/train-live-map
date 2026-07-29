@@ -62,7 +62,7 @@ function createRouteLabelImage(name: string, lineColor: string): ImageData {
   const fontSize = 12 * ROUTE_LABEL_PIXEL_RATIO;
   const horizontalPadding = 9 * ROUTE_LABEL_PIXEL_RATIO;
   const height = 24 * ROUTE_LABEL_PIXEL_RATIO;
-  context.font = `800 ${fontSize}px "Hiragino Sans", "Yu Gothic", sans-serif`;
+  context.font = `800 ${fontSize}px "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", sans-serif`;
   const width = Math.ceil(
     Math.max(
       54 * ROUTE_LABEL_PIXEL_RATIO,
@@ -73,7 +73,7 @@ function createRouteLabelImage(name: string, lineColor: string): ImageData {
   canvas.width = width;
   canvas.height = height;
 
-  context.font = `800 ${fontSize}px "Hiragino Sans", "Yu Gothic", sans-serif`;
+  context.font = `800 ${fontSize}px "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", sans-serif`;
   context.textAlign = "center";
   context.textBaseline = "middle";
   context.lineJoin = "round";

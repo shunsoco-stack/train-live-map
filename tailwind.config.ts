@@ -29,6 +29,8 @@ const config: Config = {
       },
       fontFamily: {
         sans: [
+          "M PLUS Rounded 1c",
+          "Hiragino Maru Gothic ProN",
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",
