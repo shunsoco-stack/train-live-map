@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .vinext",
-    "test": "node --test src/data/railwayCatalog.test.ts src/lib/mapViewport.test.ts src/lib/odpt/direction.test.ts src/lib/trainMotion.test.ts"
+    "test": "node --test src/data/railwayCatalog.test.ts src/lib/browserGuidance.test.ts src/lib/mapViewport.test.ts src/lib/odpt/direction.test.ts src/lib/trainMotion.test.ts"
   },
   "dependencies": {
     "lucide-react": "^0.469.0",
