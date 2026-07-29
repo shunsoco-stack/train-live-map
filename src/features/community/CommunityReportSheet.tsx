@@ -4,15 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertTriangle,
+  Bell,
+  BellOff,
+  BellRing,
   CheckCircle2,
   Clock3,
   Loader2,
   OctagonX,
   Send,
+  Smartphone,
   UsersRound,
   X,
 } from "lucide-react";
 import { useCommunityReports } from "@/features/community/useCommunityReports";
+import { usePushNotifications } from "@/features/community/usePushNotifications";
 import type { RailwayFilterOption } from "@/types/railway";
 import type {
   CommunityReportStatus,
@@ -67,6 +72,7 @@ export function CommunityReportSheet({
     cooldownSeconds,
     submit,
   } = useCommunityReports();
+  const push = usePushNotifications();
 
   const visibleOptions = useMemo(
     () =>
@@ -105,6 +111,8 @@ export function CommunityReportSheet({
   const selectedLine = visibleOptions.find(
     (option) => option.id === selectedLineId,
   );
+  const pushSubscribed =
+    selectedLineId !== "" && push.isSubscribed(selectedLineId);
 
   const submitVote = async () => {
     if (!selectedLineId || !votingEnabled) return;
@@ -255,6 +263,86 @@ export function CommunityReportSheet({
                         </p>
                       )}
                     </div>
+
+                    {selectedLine && (
+                      <div className="mt-3 rounded-2xl border border-sky-300/35 bg-sky-300/[0.07] p-3">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-300/15 text-sky-200">
+                            {pushSubscribed ? (
+                              <BellRing className="h-5 w-5" aria-hidden />
+                            ) : push.status === "denied" ? (
+                              <BellOff className="h-5 w-5" aria-hidden />
+                            ) : push.status ===
+                              "ios-install-required" ? (
+                              <Smartphone
+                                className="h-5 w-5"
+                                aria-hidden
+                              />
+                            ) : (
+                              <Bell className="h-5 w-5" aria-hidden />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold text-rail-text">
+                              運転見合わせの可能性を通知
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-rail-muted">
+                              {push.status === "checking" &&
+                                "この端末で通知を利用できるか確認しています。"}
+                              {push.status === "disabled" &&
+                                "通知機能を準備中です。"}
+                              {push.status === "unsupported" &&
+                                "このブラウザはWebプッシュ通知に対応していません。"}
+                              {push.status === "ios-install-required" &&
+                                "iPhone・iPadではホーム画面に追加し、アイコンから起動すると設定できます。"}
+                              {push.status === "denied" &&
+                                "通知が拒否されています。端末またはブラウザの設定から許可してください。"}
+                              {push.status === "error" &&
+                                "通知機能を準備できませんでした。"}
+                              {push.status === "available" &&
+                                (pushSubscribed
+                                  ? `${selectedLine.name}の急増通知を受信中です。`
+                                  : `短時間に${selectedLine.name}の見合わせ報告が急増した場合にお知らせします。`)}
+                            </p>
+
+                            {push.status === "available" && (
+                              <button
+                                type="button"
+                                aria-pressed={pushSubscribed}
+                                disabled={push.busy}
+                                onClick={() =>
+                                  void push.toggleLine(selectedLine.id)
+                                }
+                                className={`pressable mt-2 min-h-11 w-full rounded-xl border px-3 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 disabled:opacity-50 ${
+                                  pushSubscribed
+                                    ? "border-sky-300 bg-sky-300/15 text-sky-100"
+                                    : "border-rail-border bg-black/15 text-rail-text"
+                                }`}
+                              >
+                                {push.busy
+                                  ? "通知設定を更新中…"
+                                  : pushSubscribed
+                                    ? "通知を停止する"
+                                    : "この路線の通知を受け取る"}
+                              </button>
+                            )}
+
+                            {push.error && (
+                              <p
+                                role="alert"
+                                className="mt-2 text-xs leading-5 text-red-200"
+                              >
+                                {push.error}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <p className="mt-2 text-[11px] leading-4 text-rail-muted">
+                          利用者投稿から推定した可能性の通知です。
+                          鉄道会社の公式発表ではありません。
+                        </p>
+                      </div>
+                    )}
 
                     {!votingEnabled && (
                       <div className="mt-3 rounded-xl border border-orange-400/40 bg-orange-400/10 p-3 text-xs leading-5 text-orange-100">

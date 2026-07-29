@@ -7,6 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description:
       "関東のJR在来線の列車位置と運行状況を地図上で確認できるWebアプリ。",
     start_url: "/",
+    id: "/",
     scope: "/",
     display: "standalone",
     background_color: "#1a1008",

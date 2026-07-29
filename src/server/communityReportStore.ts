@@ -2,6 +2,11 @@ import {
   COMMUNITY_REPORT_COOLDOWN_SECONDS,
   COMMUNITY_REPORT_WINDOW_MS,
 } from "@/lib/communityReports";
+import {
+  redisCommand,
+  redisConfiguration,
+  type RedisConfiguration,
+} from "@/server/redis";
 import type { CommunityReportRecord } from "@/types/community";
 
 const REPORTS_KEY = "train-live-map:community-reports:v1";
@@ -20,40 +25,6 @@ export interface CommunityReportStore {
     lineId: string,
   ): Promise<boolean>;
   save(report: CommunityReportRecord, now?: number): Promise<void>;
-}
-
-interface RedisResponse<T> {
-  result: T;
-}
-
-function redisConfiguration(): { url: string; token: string } | null {
-  const url =
-    process.env.UPSTASH_REDIS_REST_URL ??
-    process.env.KV_REST_API_URL;
-  const token =
-    process.env.UPSTASH_REDIS_REST_TOKEN ??
-    process.env.KV_REST_API_TOKEN;
-  return url && token ? { url: url.replace(/\/$/, ""), token } : null;
-}
-
-async function redisCommand<T>(
-  config: { url: string; token: string },
-  command: Array<string | number>,
-): Promise<T> {
-  const response = await fetch(config.url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${config.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(command),
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    throw new Error(`Redis request failed (${response.status})`);
-  }
-  const data = (await response.json()) as RedisResponse<T>;
-  return data.result;
 }
 
 function parseStoredReports(members: readonly string[]): StoredReport[] {
@@ -78,7 +49,7 @@ function parseStoredReports(members: readonly string[]): StoredReport[] {
 class RedisCommunityReportStore implements CommunityReportStore {
   public readonly persistent = true;
 
-  constructor(private readonly config: { url: string; token: string }) {}
+  constructor(private readonly config: RedisConfiguration) {}
 
   async listActive(now = Date.now()): Promise<StoredReport[]> {
     const cutoff = now - COMMUNITY_REPORT_WINDOW_MS;

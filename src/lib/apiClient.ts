@@ -8,6 +8,12 @@ import type {
   CommunityReportSubmitResponse,
   CommunityReportVote,
 } from "@/types/community";
+import type {
+  DeletePushSubscriptionRequest,
+  PushConfigResponse,
+  SavePushSubscriptionRequest,
+  SavePushSubscriptionResponse,
+} from "@/types/push";
 
 /**
  * フロントエンドから Next.js の Route Handler を呼び出すクライアント。
@@ -70,4 +76,40 @@ export async function submitCommunityReport(
     );
   }
   return data as CommunityReportSubmitResponse;
+}
+
+export function fetchPushConfig(
+  signal?: AbortSignal,
+): Promise<PushConfigResponse> {
+  return getJson<PushConfigResponse>("/api/push/config", signal);
+}
+
+async function pushSubscriptionRequest<T>(
+  method: "POST" | "DELETE",
+  body: SavePushSubscriptionRequest | DeletePushSubscriptionRequest,
+): Promise<T> {
+  const response = await fetch("/api/push/subscriptions", {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = (await response.json()) as T & { error?: string };
+  if (!response.ok) {
+    throw new Error(
+      data.error ?? `通知設定の更新に失敗しました (${response.status})`,
+    );
+  }
+  return data;
+}
+
+export function savePushSubscription(
+  body: SavePushSubscriptionRequest,
+): Promise<SavePushSubscriptionResponse> {
+  return pushSubscriptionRequest("POST", body);
+}
+
+export function deletePushSubscription(
+  body: DeletePushSubscriptionRequest,
+): Promise<{ subscribed: false }> {
+  return pushSubscriptionRequest("DELETE", body);
 }

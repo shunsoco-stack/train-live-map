@@ -8,6 +8,7 @@ import {
 } from "@/lib/communityReports";
 import { getRailwayCatalogLine } from "@/data/railwayCatalog";
 import { getCommunityReportStore } from "@/server/communityReportStore";
+import { maybeSendSuspensionSpikeNotification } from "@/server/pushNotifier";
 import type {
   CommunityReportsApiResponse,
   CommunityReportSubmitResponse,
@@ -98,6 +99,18 @@ export async function POST(request: NextRequest) {
 
     const createdAt = new Date().toISOString();
     await store.save({ ...vote, reporterHash, createdAt });
+    if (vote.status === "suspended") {
+      try {
+        const activeReports = await store.listActive();
+        await maybeSendSuspensionSpikeNotification({
+          reports: activeReports.map((item) => item.record),
+          lineId: vote.lineId,
+          lineName: catalogLine.name,
+        });
+      } catch {
+        // 通知失敗で利用者の投票自体を失敗扱いにしない。
+      }
+    }
     const payload = await responsePayload(request);
     const summary = payload.summaries.find(
       (item) => item.lineId === vote.lineId,
