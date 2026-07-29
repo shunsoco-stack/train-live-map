@@ -4,9 +4,9 @@ import Script from "next/script";
 import { adsenseClientId } from "@/lib/adsense";
 import "./globals.css";
 
-const title = "Train Live Map｜関東のJR在来線";
+const title = "JR東日本 関東ライブマップ｜関東の列車位置・運行情報";
 const description =
-  "関東のJR在来線の列車位置と運行状況を地図上で確認できるWebアプリ。";
+  "JR東日本の関東エリアを走る在来線の列車位置と運行状況を地図上で確認できる非公式Webアプリ。";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -22,11 +22,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title,
     description,
-    applicationName: "Train Live Map",
+    applicationName: "JR東日本 関東ライブマップ",
     manifest: "/manifest.webmanifest",
     appleWebApp: {
       capable: true,
-      title: "Train Live Map",
+      title: "JR関東マップ",
       statusBarStyle: "black-translucent",
     },
     formatDetection: {
@@ -44,7 +44,7 @@ export async function generateMetadata(): Promise<Metadata> {
           url: imageUrl,
           width: 1732,
           height: 907,
-          alt: "Train Live Map — 関東のJR在来線",
+          alt: "JR東日本 関東ライブマップ — 非公式アプリ",
         },
       ],
     },
@@ -58,7 +58,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export const viewport: Viewport = {
-  themeColor: "#1a1008",
+  themeColor: "#0b513b",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

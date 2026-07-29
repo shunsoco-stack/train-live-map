@@ -1,4 +1,4 @@
-import { TrainFront } from "lucide-react";
+import Image from "next/image";
 import { DataSourceBadge } from "@/components/DataSourceBadge";
 import { DataUsageNotice } from "@/components/DataUsageNotice";
 import { UpdateStatus } from "@/components/UpdateStatus";
@@ -20,15 +20,20 @@ export function AppHeader({
     <header className="app-material safe-top pointer-events-auto relative z-20 border-b border-rail-border/70 px-3 py-1.5">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.65rem] bg-rail-accent-dark text-orange-100 shadow-inner shadow-orange-200/10">
-            <TrainFront className="h-[1.125rem] w-[1.125rem]" aria-hidden />
-          </span>
+          <Image
+            src="/icons/jr-east-kanto-live-map-192.png"
+            alt=""
+            width={32}
+            height={32}
+            className="h-8 w-8 shrink-0 rounded-[0.65rem] shadow-md"
+            aria-hidden
+          />
           <div className="leading-tight">
             <h1 className="text-[0.95rem] font-bold tracking-[-0.015em] text-rail-text">
-              Train Live Map
+              JR東日本
             </h1>
             <p className="text-[0.6875rem] font-medium tracking-[0.015em] text-rail-muted">
-              関東のJR在来線
+              関東ライブマップ・非公式
             </p>
           </div>
         </div>

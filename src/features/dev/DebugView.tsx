@@ -70,7 +70,9 @@ export function DebugView() {
     <main className="mx-auto max-w-3xl px-4 py-6 text-rail-text">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">Train Live Map — Debug</h1>
+          <h1 className="text-xl font-bold">
+            JR東日本 関東ライブマップ — Debug
+          </h1>
           <p className="text-xs text-rail-muted">/dev/debug(開発時のみ)</p>
         </div>
         <button

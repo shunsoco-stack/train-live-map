@@ -86,8 +86,8 @@ export async function maybeSendSuspensionSpikeNotification({
   const payload = JSON.stringify({
     title: `${lineName}で運転見合わせの可能性`,
     body: `直近5分に利用者から${spike.recentSuspended}件の見合わせ報告がありました。公式情報をご確認ください。`,
-    icon: "/icons/train-live-map-192.png",
-    badge: "/icons/train-live-map-192.png",
+    icon: "/icons/jr-east-kanto-live-map-192.png",
+    badge: "/icons/jr-east-kanto-live-map-192.png",
     url: "/",
     tag: `community-suspension-${lineId}`,
     lineId,
