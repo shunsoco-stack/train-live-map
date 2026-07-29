@@ -25,8 +25,8 @@ self.addEventListener("push", (event) => {
       typeof data.body === "string"
         ? data.body
         : "利用者から見合わせ報告が増えています。公式情報をご確認ください。",
-    icon: data.icon || "/icons/jr-east-kanto-live-map-192.png",
-    badge: data.badge || "/icons/jr-east-kanto-live-map-192.png",
+    icon: data.icon || "/icons/train-live-map-jr-east-kanto-192.png",
+    badge: data.badge || "/icons/train-live-map-jr-east-kanto-192.png",
     tag: data.tag || "community-suspension",
     renotify: true,
     data: {

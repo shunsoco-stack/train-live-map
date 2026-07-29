@@ -4,7 +4,7 @@ import Script from "next/script";
 import { adsenseClientId } from "@/lib/adsense";
 import "./globals.css";
 
-const title = "JR東日本 関東ライブマップ｜関東の列車位置・運行情報";
+const title = "Train Live Map｜JR東日本・関東版";
 const description =
   "JR東日本の関東エリアを走る在来線の列車位置と運行状況を地図上で確認できる非公式Webアプリ。";
 
@@ -17,16 +17,19 @@ export async function generateMetadata(): Promise<Metadata> {
       ? "http"
       : "https");
   const origin = host ? `${protocol}://${host}` : "http://127.0.0.1:3000";
-  const imageUrl = new URL("/og.png", origin).toString();
+  const imageUrl = new URL(
+    "/og-train-live-map-jr-east-kanto.png",
+    origin,
+  ).toString();
 
   return {
     title,
     description,
-    applicationName: "JR東日本 関東ライブマップ",
+    applicationName: "Train Live Map｜JR東日本・関東版",
     manifest: "/manifest.webmanifest",
     appleWebApp: {
       capable: true,
-      title: "JR関東マップ",
+      title: "Train Live Map",
       statusBarStyle: "black-translucent",
     },
     formatDetection: {
@@ -44,7 +47,7 @@ export async function generateMetadata(): Promise<Metadata> {
           url: imageUrl,
           width: 1732,
           height: 907,
-          alt: "JR東日本 関東ライブマップ — 非公式アプリ",
+          alt: "Train Live Map — JR東日本・関東版の非公式アプリ",
         },
       ],
     },

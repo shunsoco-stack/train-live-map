@@ -21,15 +21,15 @@ const titleOverlay = Buffer.from(`
        stroke-linejoin="round"
        paint-order="stroke fill"
        filter="url(#shadow)">
-      <text x="512" y="795" font-size="70" stroke-width="12"
-            letter-spacing="3">JR東日本</text>
-      <text x="512" y="902" font-size="88" stroke-width="14"
-            letter-spacing="1">関東ライブマップ</text>
+      <text x="512" y="798" font-size="82" stroke-width="13"
+            letter-spacing="1">Train Live Map</text>
+      <text x="512" y="897" font-size="58" stroke-width="11"
+            letter-spacing="1">JR東日本・関東版</text>
     </g>
   </svg>
 `);
 
-const icon1024 = "public/icons/jr-east-kanto-live-map-1024.png";
+const icon1024 = "public/icons/train-live-map-jr-east-kanto-1024.png";
 await sharp(source)
   .resize(1024, 1024, { fit: "cover" })
   .composite([{ input: titleOverlay }])
@@ -37,8 +37,8 @@ await sharp(source)
   .toFile(icon1024);
 
 const outputs = [
-  ["public/icons/jr-east-kanto-live-map-512.png", 512],
-  ["public/icons/jr-east-kanto-live-map-192.png", 192],
+  ["public/icons/train-live-map-jr-east-kanto-512.png", 512],
+  ["public/icons/train-live-map-jr-east-kanto-192.png", 192],
   ["src/app/icon.png", 512],
   ["src/app/apple-icon.png", 512],
 ];
@@ -78,8 +78,8 @@ const ogBackground = Buffer.from(`
     </g>
     <g font-family="'UD デジタル 教科書体 NP', 'BIZ UDPゴシック', sans-serif"
        fill="#fffaf0" filter="url(#text-shadow)">
-      <text x="110" y="265" font-size="88" font-weight="700">JR東日本</text>
-      <text x="104" y="415" font-size="116" font-weight="700">関東ライブマップ</text>
+      <text x="110" y="270" font-size="112" font-weight="700">Train Live Map</text>
+      <text x="110" y="405" font-size="68" font-weight="700">JR東日本・関東版</text>
       <text x="112" y="526" font-size="40" font-weight="600"
             fill="#d9ffc0">関東エリアのJR在来線を、見やすく。</text>
     </g>
@@ -99,4 +99,4 @@ const ogIcon = await sharp(icon1024)
 await sharp(ogBackground)
   .composite([{ input: ogIcon, left: 1070, top: 165 }])
   .png({ compressionLevel: 9, quality: 100 })
-  .toFile("public/og.png");
+  .toFile("public/og-train-live-map-jr-east-kanto.png");

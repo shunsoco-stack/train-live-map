@@ -21,7 +21,7 @@ export function AppHeader({
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Image
-            src="/icons/jr-east-kanto-live-map-192.png"
+            src="/icons/train-live-map-jr-east-kanto-192.png"
             alt=""
             width={32}
             height={32}
@@ -30,10 +30,10 @@ export function AppHeader({
           />
           <div className="leading-tight">
             <h1 className="text-[0.95rem] font-bold tracking-[-0.015em] text-rail-text">
-              JR東日本
+              Train Live Map
             </h1>
             <p className="text-[0.6875rem] font-medium tracking-[0.015em] text-rail-muted">
-              関東ライブマップ・非公式
+              JR東日本・関東版（非公式）
             </p>
           </div>
         </div>

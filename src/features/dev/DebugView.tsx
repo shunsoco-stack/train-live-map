@@ -71,7 +71,7 @@ export function DebugView() {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">
-            JR東日本 関東ライブマップ — Debug
+            Train Live Map｜JR東日本・関東版 — Debug
           </h1>
           <p className="text-xs text-rail-muted">/dev/debug(開発時のみ)</p>
         </div>

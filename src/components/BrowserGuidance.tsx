@@ -146,7 +146,7 @@ export function BrowserGuidance({
           <div className="p-5">
             <div className="flex items-start gap-3">
               <Image
-                src="/icons/jr-east-kanto-live-map-192.png"
+                src="/icons/train-live-map-jr-east-kanto-192.png"
                 alt=""
                 width={48}
                 height={48}
@@ -155,7 +155,7 @@ export function BrowserGuidance({
               />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold tracking-[0.02em] text-orange-200">
-                  JR東日本 関東ライブマップ
+                  Train Live Map｜JR東日本・関東版
                 </p>
                 <h2
                   id="x-browser-guidance-title"
@@ -204,7 +204,7 @@ export function BrowserGuidance({
           >
             <div className="flex items-start gap-3">
               <Image
-                src="/icons/jr-east-kanto-live-map-192.png"
+                src="/icons/train-live-map-jr-east-kanto-192.png"
                 alt=""
                 width={44}
                 height={44}
