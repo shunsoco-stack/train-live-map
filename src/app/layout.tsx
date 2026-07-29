@@ -73,6 +73,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
+      <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+      </head>
       <body className="font-sans antialiased">
         {children}
         {adsenseClientId && (
