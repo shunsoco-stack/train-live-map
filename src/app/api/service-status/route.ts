@@ -9,9 +9,20 @@ const log = createLogger("api.service-status");
 
 export async function GET() {
   try {
-    const { serviceStatus, isMock, source, fallback, notice } =
-      await trainLocationService.getServiceStatus();
-    const body: ServiceStatusApiResponse = { serviceStatus, isMock, source, fallback, notice };
+    const { serviceStatuses, isMock, source, fallback, notice } =
+      await trainLocationService.getServiceStatuses();
+    const serviceStatus =
+      serviceStatuses.find((item) => item.lineId === "tokaido") ??
+      serviceStatuses[0];
+    if (!serviceStatus) throw new Error("運行情報がありません");
+    const body: ServiceStatusApiResponse = {
+      serviceStatus,
+      serviceStatuses,
+      isMock,
+      source,
+      fallback,
+      notice,
+    };
     return NextResponse.json(body);
   } catch (error) {
     log.error("失敗", { message: error instanceof Error ? error.message : String(error) });

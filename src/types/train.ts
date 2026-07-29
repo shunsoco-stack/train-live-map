@@ -65,6 +65,8 @@ export interface TrainLocation {
 
 /** 路線全体の運行情報 */
 export interface ServiceStatus {
+  /** アプリ内で一意な路線ID */
+  lineId: string;
   lineName: string;
   /** 運行状況の概況(平常運転 / 一部遅延 / 運転見合わせ など) */
   severity: "normal" | "minor" | "major";
@@ -96,6 +98,8 @@ export interface TrainsApiResponse {
 /** API /api/service-status のレスポンス形式 */
 export interface ServiceStatusApiResponse {
   serviceStatus: ServiceStatus;
+  /** 利用可能な全路線の運行情報。旧クライアント向けにserviceStatusも残す。 */
+  serviceStatuses?: ServiceStatus[];
   isMock: boolean;
   source: ProviderSource;
   fallback: boolean;

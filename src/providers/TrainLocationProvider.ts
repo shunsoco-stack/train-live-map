@@ -12,6 +12,8 @@ export interface TrainLocationProvider {
   getTrainLocations(): Promise<TrainLocation[]>;
   /** 路線全体の運行情報を返す。 */
   getServiceStatus(): Promise<ServiceStatus>;
+  /** 利用可能な全路線の運行情報を返す。 */
+  getServiceStatuses(): Promise<ServiceStatus[]>;
   /** このプロバイダがモックデータかどうか。UI 表示に使用。 */
   readonly isMock: boolean;
 }

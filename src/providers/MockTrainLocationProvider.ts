@@ -227,6 +227,7 @@ export class MockTrainLocationProvider implements TrainLocationProvider {
 
   async getServiceStatus(): Promise<ServiceStatus> {
     return {
+      lineId: "tokaido",
       lineName: "東海道線(東京〜横浜)",
       severity: "minor",
       message:
@@ -234,5 +235,9 @@ export class MockTrainLocationProvider implements TrainLocationProvider {
       updatedAt: new Date().toISOString(),
       dataAccuracy: "mock",
     };
+  }
+
+  async getServiceStatuses(): Promise<ServiceStatus[]> {
+    return [await this.getServiceStatus()];
   }
 }

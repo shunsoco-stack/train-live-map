@@ -9,7 +9,7 @@ export const REFRESH_MS = 7000;
 
 interface TrainDataState {
   trains: TrainLocation[];
-  serviceStatus: ServiceStatus | null;
+  serviceStatuses: ServiceStatus[];
   isMock: boolean;
   /** 実際に使われたデータ取得元 */
   source: ProviderSource;
@@ -41,7 +41,7 @@ interface UseTrainDataResult extends TrainDataState {
 export function useTrainData(): UseTrainDataResult {
   const [state, setState] = useState<TrainDataState>({
     trains: [],
-    serviceStatus: null,
+    serviceStatuses: [],
     isMock: true,
     source: "mock",
     fallback: false,
@@ -85,7 +85,7 @@ export function useTrainData(): UseTrainDataResult {
       const data = await fetchServiceStatus(signal);
       setState((prev) => ({
         ...prev,
-        serviceStatus: data.serviceStatus,
+        serviceStatuses: data.serviceStatuses ?? [data.serviceStatus],
       }));
     } catch {
       // 運行情報の失敗は致命的でないため、静かに無視(既存表示を維持)

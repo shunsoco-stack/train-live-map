@@ -2,11 +2,10 @@ import type { ServiceStatus, TrainLocation } from "@/types/train";
 import type { TrainLocationProvider } from "@/providers/TrainLocationProvider";
 import { getOdptConfig, isOdptConfigured, type OdptConfig } from "@/lib/odpt/config";
 import {
-  fetchOdptTrainInformation,
+  fetchOdptTrainInformationForOperator,
   fetchOdptTrainsForOperator,
 } from "@/lib/odpt/api";
 import {
-  defaultRailwayLabel,
   odptInformationToServiceStatus,
   odptTrainsToNetworkTrainLocations,
 } from "@/lib/odpt/mapper";
@@ -48,12 +47,40 @@ export class OdptTrainLocationProvider implements TrainLocationProvider {
   }
 
   async getServiceStatus(): Promise<ServiceStatus> {
-    const { data, durationMs } = await fetchOdptTrainInformation(
-      this.config.railway,
-      this.config,
-    );
-    const status = odptInformationToServiceStatus(data, defaultRailwayLabel());
-    this.log.info("運行情報を変換", { raw: data.length, durationMs, severity: status.severity });
+    const statuses = await this.getServiceStatuses();
+    const status =
+      statuses.find((item) => item.lineId === "tokaido") ?? statuses[0];
+    if (!status) throw new Error("利用可能な路線の運行情報がありません");
     return status;
+  }
+
+  async getServiceStatuses(): Promise<ServiceStatus[]> {
+    const [{ data, durationMs }, network] = await Promise.all([
+      fetchOdptTrainInformationForOperator(
+        this.config.operator,
+        this.config,
+      ),
+      getOdptNetworkContext(this.config),
+    ]);
+
+    const statuses = network.response.lines.map((line) => {
+      const information = data.filter(
+        (item) => item["odpt:railway"] === line.odptId,
+      );
+      return odptInformationToServiceStatus(
+        information,
+        line.name,
+        line.id,
+      );
+    });
+
+    this.log.info("全路線の運行情報を変換", {
+      raw: data.length,
+      mapped: statuses.length,
+      disrupted: statuses.filter((item) => item.severity !== "normal")
+        .length,
+      durationMs,
+    });
+    return statuses;
   }
 }

@@ -165,6 +165,20 @@ export function fetchOdptTrainInformation(
   });
 }
 
+/** 指定事業者の全対象路線の運行情報をまとめて取得する。 */
+export function fetchOdptTrainInformationForOperator(
+  operator: string,
+  config: OdptConfig = getOdptConfig(),
+): Promise<FetchResult<OdptTrainInformation[]>> {
+  return fetchWithRetry<OdptTrainInformation[]>(
+    config,
+    "odpt:TrainInformation",
+    {
+      "odpt:operator": operator,
+    },
+  );
+}
+
 /**
  * 指定事業者の路線一覧(odpt:Railway)を取得する。
  * 「どの路線 ID が利用可能か」を診断するために使用する。

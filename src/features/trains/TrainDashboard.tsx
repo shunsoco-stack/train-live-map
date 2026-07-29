@@ -16,6 +16,7 @@ import { TrainDetailPanel } from "@/features/trains/TrainDetailPanel";
 import { TrainFilterBar } from "@/features/trains/TrainFilterBar";
 import { useTrainData } from "@/features/trains/useTrainData";
 import { useNow } from "@/lib/useNow";
+import { serviceStatusesForVisibleLines } from "@/lib/serviceStatus";
 import {
   matchesFilter,
   TRAIN_FILTERS,
@@ -34,7 +35,7 @@ const SELECTION_DEFAULT_VERSION = "2";
 export function TrainDashboard() {
   const {
     trains,
-    serviceStatus,
+    serviceStatuses,
     source,
     fallback,
     notice,
@@ -134,6 +135,15 @@ export function TrainDashboard() {
     [trainsOnVisibleLines, filter, now],
   );
 
+  const visibleServiceStatuses = useMemo(
+    () =>
+      serviceStatusesForVisibleLines(
+        serviceStatuses,
+        visibleLineIds,
+      ),
+    [serviceStatuses, visibleLineIds],
+  );
+
   const selectedTrain = useMemo(
     () => trains.find((t) => t.id === selectedId) ?? null,
     [trains, selectedId],
@@ -167,7 +177,14 @@ export function TrainDashboard() {
 
         {/* 上部オーバーレイ: 運行情報・エラー */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col gap-2 p-3">
-          <ServiceStatusBar serviceStatus={serviceStatus} />
+          <div className="flex max-h-36 flex-col gap-2 overflow-y-auto">
+            {visibleServiceStatuses.map((status) => (
+              <ServiceStatusBar
+                key={status.lineId}
+                serviceStatus={status}
+              />
+            ))}
+          </div>
           <DataSourceNotice notice={notice} fallback={fallback} />
           {error && <ErrorNotice message={error} onRetry={refresh} />}
         </div>

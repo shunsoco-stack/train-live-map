@@ -21,4 +21,8 @@ export class JrEastProvider implements TrainLocationProvider {
   async getServiceStatus(): Promise<ServiceStatus> {
     throw new Error("JrEastProvider は未実装です");
   }
+
+  async getServiceStatuses(): Promise<ServiceStatus[]> {
+    throw new Error("JrEastProvider は未実装です");
+  }
 }

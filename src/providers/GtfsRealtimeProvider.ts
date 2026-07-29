@@ -22,4 +22,8 @@ export class GtfsRealtimeProvider implements TrainLocationProvider {
   async getServiceStatus(): Promise<ServiceStatus> {
     throw new Error("GtfsRealtimeProvider は未実装です");
   }
+
+  async getServiceStatuses(): Promise<ServiceStatus[]> {
+    throw new Error("GtfsRealtimeProvider は未実装です");
+  }
 }

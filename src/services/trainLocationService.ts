@@ -63,6 +63,14 @@ export interface ServiceStatusResult {
   notice: string | null;
 }
 
+export interface ServiceStatusesResult {
+  serviceStatuses: ServiceStatus[];
+  source: ProviderSource;
+  isMock: boolean;
+  fallback: boolean;
+  notice: string | null;
+}
+
 const MOCK_NOTICE_NO_TOKEN = "現在モックデータを表示しています(ODPT 未設定)。";
 const MOCK_NOTICE_FALLBACK = "現在モックデータを表示しています(実データの取得に失敗したため)。";
 const MOCK_NOTICE_EMPTY =
@@ -114,11 +122,28 @@ export const trainLocationService = {
   },
 
   async getServiceStatus(): Promise<ServiceStatusResult> {
+    const result = await this.getServiceStatuses();
+    const serviceStatus =
+      result.serviceStatuses.find((item) => item.lineId === "tokaido") ??
+      result.serviceStatuses[0];
+    if (!serviceStatus) {
+      throw new Error("運行情報を取得できる路線がありません");
+    }
+    return { ...result, serviceStatus };
+  },
+
+  async getServiceStatuses(): Promise<ServiceStatusesResult> {
     const real = getRealProvider();
     const { value, source, fallback, notice } = await withProvider(real, (p) =>
-      p.getServiceStatus(),
+      p.getServiceStatuses(),
     );
-    return { serviceStatus: value, source, isMock: source === "mock", fallback, notice };
+    return {
+      serviceStatuses: value,
+      source,
+      isMock: source === "mock",
+      fallback,
+      notice,
+    };
   },
 };
 

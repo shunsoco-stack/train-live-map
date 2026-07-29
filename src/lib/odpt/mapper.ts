@@ -308,11 +308,13 @@ function pickJa(field: string | { ja?: string; en?: string } | undefined): strin
 export function odptInformationToServiceStatus(
   info: OdptTrainInformation[],
   railwayLabel: string,
+  lineId = "tokaido",
 ): ServiceStatus {
   const now = new Date().toISOString();
 
   if (!info || info.length === 0) {
     return {
+      lineId,
       lineName: railwayLabel,
       severity: "normal",
       message: "平常どおり運転しています。",
@@ -337,6 +339,7 @@ export function odptInformationToServiceStatus(
   }
 
   return {
+    lineId,
     lineName: railwayLabel,
     severity,
     message: text || statusText || "運行情報を確認してください。",
