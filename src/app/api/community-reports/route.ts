@@ -53,14 +53,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const store = getCommunityReportStore();
-    if (!votingEnabled(request, store.persistent)) {
-      return NextResponse.json(
-        { error: "共有投票の保存先を準備中です。" },
-        { status: 503 },
-      );
-    }
-
     const reporterId = request.headers.get("x-community-reporter") ?? "";
     if (!/^[A-Za-z0-9_-]{12,100}$/.test(reporterId)) {
       return NextResponse.json(
@@ -69,7 +61,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const vote = validateCommunityReportVote(await request.json());
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "投票内容を確認してください。" },
+        { status: 400 },
+      );
+    }
+    const vote = validateCommunityReportVote(body);
     const catalogLine = vote
       ? getRailwayCatalogLine(vote.lineId)
       : undefined;
@@ -80,6 +81,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const store = getCommunityReportStore();
+    if (!votingEnabled(request, store.persistent)) {
+      return NextResponse.json(
+        { error: "共有投票の保存先を準備中です。" },
+        { status: 503 },
+      );
+    }
     const reporterHash = createHash("sha256")
       .update(`train-live-map:v1:${reporterId}`)
       .digest("hex")

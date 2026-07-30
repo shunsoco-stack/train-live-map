@@ -52,6 +52,39 @@ test("平常・遅延・見合わせの投票を検証する", () => {
   );
 });
 
+test("遅延分数の暗黙変換を拒否して数値だけを受理する", () => {
+  for (const delayMinutes of [true, "5", [5], null, undefined]) {
+    assert.equal(
+      validateCommunityReportVote({
+        lineId: "tokaido",
+        status: "delayed",
+        delayMinutes,
+      }),
+      null,
+    );
+  }
+  assert.deepEqual(
+    validateCommunityReportVote({
+      lineId: "tokaido",
+      status: "delayed",
+      delayMinutes: 5,
+    }),
+    { lineId: "tokaido", status: "delayed", delayMinutes: 5 },
+  );
+});
+
+test("空・長すぎる・記号を含む路線IDを拒否する", () => {
+  for (const lineId of ["", "a".repeat(1_000), "tokaido!", " tokaido "]) {
+    assert.equal(
+      validateCommunityReportVote({
+        lineId,
+        status: "on-time",
+      }),
+      null,
+    );
+  }
+});
+
 test("遅延投票は中央値の分数で集計する", () => {
   const summaries = aggregateCommunityReports(
     [
