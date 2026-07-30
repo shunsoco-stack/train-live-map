@@ -2,11 +2,15 @@
 
 import { useEffect, useRef } from "react";
 import {
-  ArrowDownRight,
-  ArrowUpRight,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
   Clock,
   Gauge,
   MapPin,
+  RotateCcw,
+  RotateCw,
   Ticket,
   TrainFront,
   X,
@@ -57,8 +61,7 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
   if (!train) return null;
 
   const appearance = getStatusAppearance(train, now);
-  const directionLabel = train.direction === "inbound" ? "上り" : "下り";
-  const DirectionIcon = train.direction === "inbound" ? ArrowUpRight : ArrowDownRight;
+  const DirectionIcon = directionIcon(train.directionKind);
 
   return (
     <div
@@ -112,7 +115,9 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
               <p className="text-base font-bold text-rail-text">
                 {trainTypeLabelJa(train.trainType)}・{train.destination}行
               </p>
-              <p className="text-xs text-rail-muted">{directionLabel}</p>
+              {train.directionLabel && (
+                <p className="text-xs text-rail-muted">{train.directionLabel}</p>
+              )}
             </div>
           </div>
           <button
@@ -155,9 +160,11 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
           <DetailItem icon={TrainFront} label="行先">
             {train.destination}
           </DetailItem>
-          <DetailItem icon={DirectionIcon} label="上り・下り">
-            {directionLabel}
-          </DetailItem>
+          {train.directionLabel && DirectionIcon && (
+            <DetailItem icon={DirectionIcon} label="進行方向">
+              {train.directionLabel}
+            </DetailItem>
+          )}
           <DetailItem icon={Clock} label="遅延時間">
             {train.delayMinutes > 0 ? `${train.delayMinutes}分` : "なし"}
           </DetailItem>
@@ -202,6 +209,28 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
       </div>
     </div>
   );
+}
+
+function directionIcon(directionKind: TrainLocation["directionKind"]) {
+  switch (directionKind) {
+    case "up":
+    case "north":
+      return ArrowUp;
+    case "down":
+    case "south":
+      return ArrowDown;
+    case "east":
+      return ArrowRight;
+    case "west":
+      return ArrowLeft;
+    case "inner-loop":
+      return RotateCw;
+    case "outer-loop":
+      return RotateCcw;
+    case "unknown":
+    default:
+      return null;
+  }
 }
 
 interface DetailItemProps {

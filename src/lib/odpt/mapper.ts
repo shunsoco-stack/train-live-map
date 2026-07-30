@@ -12,7 +12,11 @@ import {
   coordinateBetweenStations,
   stationFractionById,
 } from "@/lib/routeGeometry";
-import { inferTokaidoDirection } from "@/lib/odpt/direction";
+import {
+  inferTokaidoDirection,
+  mapOdptRailDirection,
+  mapTokaidoDirection,
+} from "@/lib/odpt/direction";
 
 /**
  * ODPT のレスポンスを、UI が扱うドメイン型(TrainLocation / ServiceStatus)へ変換する。
@@ -111,15 +115,18 @@ export function odptTrainToTrainLocation(train: OdptTrain): TrainLocation | null
     lineName: "東海道線",
     lineColor: "#f68b1e",
     trainNumber,
-    direction: inferTokaidoDirection(
-      {
-        odptDirection: train["odpt:railDirection"],
-        fromStationId: fromLocal,
-        toStationId: toLocal,
-        destinationStationIds: train["odpt:destinationStation"]?.map(odptStationToLocalId),
-        trainNumber,
-      },
-      TOKAIDO_STATION_ORDER,
+    ...mapTokaidoDirection(
+      inferTokaidoDirection(
+        {
+          odptDirection: train["odpt:railDirection"],
+          fromStationId: fromLocal,
+          toStationId: toLocal,
+          destinationStationIds:
+            train["odpt:destinationStation"]?.map(odptStationToLocalId),
+          trainNumber,
+        },
+        TOKAIDO_STATION_ORDER,
+      ),
     ),
     destination: mapDestination(train["odpt:destinationStation"]),
     trainType: mapTrainType(train["odpt:trainType"]),
@@ -134,11 +141,6 @@ export function odptTrainToTrainLocation(train: OdptTrain): TrainLocation | null
     dataAccuracy: accuracy,
     routeSegment,
   };
-}
-
-function genericDirection(value: string | null | undefined): TrainLocation["direction"] {
-  const suffix = value?.split(/[.:]/).pop()?.toLowerCase() ?? "";
-  return suffix === "inbound" ? "inbound" : "outbound";
 }
 
 function networkStationLabel(
@@ -245,21 +247,25 @@ export function odptTrainsToNetworkTrainLocations(
       lineName: catalog.name,
       lineColor: mapLine?.color ?? catalog.color,
       trainNumber,
-      direction:
-        lineId === "tokaido"
-          ? inferTokaidoDirection(
+      ...(lineId === "tokaido"
+        ? mapTokaidoDirection(
+            inferTokaidoDirection(
               {
                 odptDirection: train["odpt:railDirection"],
-                fromStationId: fromStationId?.split(".").pop()?.toLowerCase() ?? null,
-                toStationId: toStationId?.split(".").pop()?.toLowerCase() ?? null,
-                destinationStationIds: train["odpt:destinationStation"]?.map(
-                  (id) => id.split(".").pop()?.toLowerCase() ?? null,
-                ),
+                fromStationId:
+                  fromStationId?.split(".").pop()?.toLowerCase() ?? null,
+                toStationId:
+                  toStationId?.split(".").pop()?.toLowerCase() ?? null,
+                destinationStationIds:
+                  train["odpt:destinationStation"]?.map(
+                    (id) => id.split(".").pop()?.toLowerCase() ?? null,
+                  ),
                 trainNumber,
               },
               TOKAIDO_STATION_ORDER,
-            )
-          : genericDirection(train["odpt:railDirection"]),
+            ),
+          )
+        : mapOdptRailDirection(train["odpt:railDirection"])),
       destination: networkDestination(
         train["odpt:destinationStation"],
         network,

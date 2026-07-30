@@ -28,7 +28,8 @@ type MotionKind = "oscillate" | "fixed";
 interface MockTrainSpec {
   id: string;
   trainNumber: string;
-  direction: TrainLocation["direction"];
+  directionKind: TrainLocation["directionKind"];
+  directionLabel: string;
   destination: string;
   trainType: TrainLocation["trainType"];
   status: TrainStatus;
@@ -61,7 +62,8 @@ const TRAIN_SPECS: MockTrainSpec[] = [
   {
     id: "t-001",
     trainNumber: "731M",
-    direction: "outbound",
+    directionKind: "down",
+    directionLabel: "下り",
     destination: "横浜",
     trainType: "local",
     status: "running",
@@ -76,7 +78,8 @@ const TRAIN_SPECS: MockTrainSpec[] = [
   {
     id: "t-002",
     trainNumber: "812M",
-    direction: "inbound",
+    directionKind: "up",
+    directionLabel: "上り",
     destination: "東京",
     trainType: "rapid",
     status: "running",
@@ -91,7 +94,8 @@ const TRAIN_SPECS: MockTrainSpec[] = [
   {
     id: "t-003",
     trainNumber: "945M",
-    direction: "outbound",
+    directionKind: "down",
+    directionLabel: "下り",
     destination: "熱海",
     trainType: "local",
     status: "stopped",
@@ -106,7 +110,8 @@ const TRAIN_SPECS: MockTrainSpec[] = [
   {
     id: "t-004",
     trainNumber: "1002M",
-    direction: "outbound",
+    directionKind: "down",
+    directionLabel: "下り",
     destination: "横浜",
     trainType: "special_rapid",
     status: "delayed",
@@ -121,7 +126,8 @@ const TRAIN_SPECS: MockTrainSpec[] = [
   {
     id: "t-005",
     trainNumber: "1108M",
-    direction: "inbound",
+    directionKind: "up",
+    directionLabel: "上り",
     destination: "東京",
     trainType: "local",
     status: "suspended",
@@ -136,7 +142,8 @@ const TRAIN_SPECS: MockTrainSpec[] = [
   {
     id: "t-006",
     trainNumber: "1215M",
-    direction: "outbound",
+    directionKind: "down",
+    directionLabel: "下り",
     destination: "川崎",
     trainType: "local",
     status: "stopped",
@@ -208,7 +215,8 @@ export class MockTrainLocationProvider implements TrainLocationProvider {
         lineName: "東海道線",
         lineColor: "#f68b1e",
         trainNumber: spec.trainNumber,
-        direction: spec.direction,
+        directionKind: spec.directionKind,
+        directionLabel: spec.directionLabel,
         destination: spec.destination,
         trainType: spec.trainType,
         latitude: lat,
