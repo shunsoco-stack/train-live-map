@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import Script from "next/script";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
+import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { adsenseClientId } from "@/lib/adsense";
 import "./globals.css";
 
@@ -96,6 +97,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <AppErrorBoundary>{children}</AppErrorBoundary>
+        <ServiceWorkerRegistration />
         {adsenseClientId && (
           <Script
             id="google-adsense"
