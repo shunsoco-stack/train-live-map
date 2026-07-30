@@ -8,9 +8,11 @@ import {
 } from "@/lib/apiClient";
 import {
   safeGetBrowserStorage,
-  safeReadStorage,
-  safeWriteStorage,
 } from "@/lib/browserGuidance";
+import {
+  COMMUNITY_REPORT_SUCCESS_DURATION_MS,
+  resolveReporterIdentity,
+} from "@/lib/communityReportUi";
 import { PagePollingController } from "@/lib/pagePolling";
 import { InFlightRequestGate } from "@/lib/requestGate";
 import type {
@@ -18,7 +20,6 @@ import type {
   CommunityReportVote,
 } from "@/types/community";
 
-const REPORTER_STORAGE_KEY = "train-live-map:community-reporter-v1";
 const REFRESH_MS = 20_000;
 
 interface CommunityReportState {
@@ -27,21 +28,14 @@ interface CommunityReportState {
   submitting: boolean;
   error: string | null;
   success: string | null;
+  successLineId: string | null;
   persistent: boolean;
   votingEnabled: boolean;
   windowMinutes: number;
   cooldownSeconds: number;
-}
-
-function reporterId(): string {
-  const storage = safeGetBrowserStorage("localStorage");
-  const stored = safeReadStorage(storage, REPORTER_STORAGE_KEY);
-  if (stored && /^[A-Za-z0-9_-]{12,100}$/.test(stored)) {
-    return stored;
-  }
-  const created = crypto.randomUUID().replaceAll("-", "");
-  safeWriteStorage(storage, REPORTER_STORAGE_KEY, created);
-  return created;
+  reporterIdentityReady: boolean;
+  reporterId: string | null;
+  lastVotedAtByLine: Record<string, number>;
 }
 
 export function useCommunityReports() {
@@ -53,11 +47,27 @@ export function useCommunityReports() {
     submitting: false,
     error: null,
     success: null,
+    successLineId: null,
     persistent: false,
     votingEnabled: false,
     windowMinutes: 30,
     cooldownSeconds: 60,
+    reporterIdentityReady: false,
+    reporterId: null,
+    lastVotedAtByLine: {},
   });
+
+  useEffect(() => {
+    const identity = resolveReporterIdentity(
+      safeGetBrowserStorage("localStorage"),
+      () => crypto.randomUUID().replaceAll("-", ""),
+    );
+    setState((previous) => ({
+      ...previous,
+      reporterIdentityReady: true,
+      reporterId: identity.reporterId,
+    }));
+  }, []);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     const token = requestGate.current.begin();
@@ -136,20 +146,59 @@ export function useCommunityReports() {
     };
   }, [load]);
 
+  useEffect(() => {
+    if (!state.success) return;
+    const timer = window.setTimeout(() => {
+      setState((previous) =>
+        previous.success
+          ? {
+              ...previous,
+              success: null,
+              successLineId: null,
+            }
+          : previous,
+      );
+    }, COMMUNITY_REPORT_SUCCESS_DURATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [state.success]);
+
+  const clearSuccess = useCallback(() => {
+    setState((previous) =>
+      previous.success
+        ? {
+            ...previous,
+            success: null,
+            successLineId: null,
+          }
+        : previous,
+    );
+  }, []);
+
   const submit = useCallback(async (vote: CommunityReportVote) => {
+    if (!state.reporterId) return false;
     setState((previous) => ({
       ...previous,
       submitting: true,
       error: null,
       success: null,
+      successLineId: null,
     }));
     try {
-      const data = await submitCommunityReport(vote, reporterId());
+      const data = await submitCommunityReport(
+        vote,
+        state.reporterId,
+      );
+      const votedAt = Date.now();
       setState((previous) => ({
         ...previous,
         ...data,
         submitting: false,
         success: "投票しました。ご協力ありがとうございます！",
+        successLineId: vote.lineId,
+        lastVotedAtByLine: {
+          ...previous.lastVotedAtByLine,
+          [vote.lineId]: votedAt,
+        },
       }));
       return true;
     } catch (error) {
@@ -163,7 +212,13 @@ export function useCommunityReports() {
       }));
       return false;
     }
-  }, []);
+  }, [state.reporterId]);
 
-  return { ...state, submit, refresh: load };
+  return {
+    ...state,
+    reporterIdentityAvailable: state.reporterId !== null,
+    submit,
+    clearSuccess,
+    refresh: load,
+  };
 }

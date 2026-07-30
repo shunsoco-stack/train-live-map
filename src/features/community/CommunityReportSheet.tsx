@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { useCommunityReports } from "@/features/community/useCommunityReports";
 import { usePushNotifications } from "@/features/community/usePushNotifications";
+import { remainingVoteCooldownSeconds } from "@/lib/communityReportUi";
+import { useNow } from "@/lib/useNow";
 import type { RailwayFilterOption } from "@/types/railway";
 import type {
   CommunityReportStatus,
@@ -66,13 +68,19 @@ export function CommunityReportSheet({
     submitting,
     error,
     success,
+    successLineId,
     persistent,
     votingEnabled,
     windowMinutes,
     cooldownSeconds,
+    reporterIdentityReady,
+    reporterIdentityAvailable,
+    lastVotedAtByLine,
     submit,
+    clearSuccess,
   } = useCommunityReports();
   const push = usePushNotifications();
+  const now = useNow(1_000).getTime();
 
   const visibleOptions = useMemo(
     () =>
@@ -102,6 +110,16 @@ export function CommunityReportSheet({
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [open]);
 
+  useEffect(() => {
+    if (!open && success) clearSuccess();
+  }, [clearSuccess, open, success]);
+
+  useEffect(() => {
+    if (successLineId && successLineId !== selectedLineId) {
+      clearSuccess();
+    }
+  }, [clearSuccess, selectedLineId, successLineId]);
+
   const summary = summaries.find(
     (item) => item.lineId === selectedLineId,
   );
@@ -113,9 +131,18 @@ export function CommunityReportSheet({
   );
   const pushSubscribed =
     selectedLineId !== "" && push.isSubscribed(selectedLineId);
+  const canVote =
+    votingEnabled &&
+    reporterIdentityReady &&
+    reporterIdentityAvailable;
+  const cooldownRemaining = remainingVoteCooldownSeconds(
+    lastVotedAtByLine[selectedLineId],
+    cooldownSeconds,
+    now,
+  );
 
   const submitVote = async () => {
-    if (!selectedLineId || !votingEnabled) return;
+    if (!selectedLineId || !canVote || cooldownRemaining > 0) return;
     await submit({
       lineId: selectedLineId,
       status,
@@ -351,9 +378,20 @@ export function CommunityReportSheet({
                       </div>
                     )}
 
+                    {votingEnabled &&
+                      reporterIdentityReady &&
+                      !reporterIdentityAvailable && (
+                        <div
+                          role="alert"
+                          className="mt-3 rounded-xl border border-orange-400/40 bg-orange-400/10 p-3 text-xs leading-5 text-orange-100"
+                        >
+                          この環境では投票できません（ブラウザのサイトデータ保存が必要です）
+                        </div>
+                      )}
+
                     <fieldset
                       className="mt-4"
-                      disabled={!votingEnabled || submitting}
+                      disabled={!canVote || submitting}
                     >
                       <legend className="text-xs font-bold text-rail-muted">
                         今の状況
@@ -407,7 +445,7 @@ export function CommunityReportSheet({
                     {status === "delayed" && (
                       <fieldset
                         className="mt-4"
-                        disabled={!votingEnabled || submitting}
+                        disabled={!canVote || submitting}
                       >
                         <legend className="text-xs font-bold text-rail-muted">
                           何分くらい遅れていますか？
@@ -453,8 +491,9 @@ export function CommunityReportSheet({
                       type="button"
                       disabled={
                         !selectedLineId ||
-                        !votingEnabled ||
-                        submitting
+                        !canVote ||
+                        submitting ||
+                        cooldownRemaining > 0
                       }
                       onClick={() => void submitVote()}
                       className="pressable mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-sky-300 px-4 text-sm font-bold text-slate-950 shadow-lg shadow-sky-950/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-100 disabled:cursor-not-allowed disabled:opacity-45"
@@ -464,10 +503,16 @@ export function CommunityReportSheet({
                           className="h-4 w-4 animate-spin"
                           aria-hidden
                         />
+                      ) : cooldownRemaining > 0 ? (
+                        <Clock3 className="h-4 w-4" aria-hidden />
                       ) : (
                         <Send className="h-4 w-4" aria-hidden />
                       )}
-                      {submitting ? "投票中…" : "この内容で投票"}
+                      {submitting
+                        ? "投票中…"
+                        : cooldownRemaining > 0
+                          ? `あと${cooldownRemaining}秒で再投票できます`
+                          : "この内容で投票"}
                     </button>
 
                     <p className="mt-2 text-center text-[11px] leading-4 text-rail-muted">
