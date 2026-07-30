@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchServiceStatus, fetchTrains } from "@/lib/apiClient";
+import { PagePollingController } from "@/lib/pagePolling";
 import { InFlightRequestGate } from "@/lib/requestGate";
 import type { ProviderSource, ServiceStatus, TrainLocation } from "@/types/train";
 import { calculateServerClockOffsetMs } from "@/lib/time";
@@ -51,6 +52,7 @@ export function useTrainData(
   );
   const trainRequestGate = useRef(new InFlightRequestGate());
   const statusRequestGate = useRef(new InFlightRequestGate());
+  const pollingControllerRef = useRef<PagePollingController | null>(null);
   const [state, setState] = useState<TrainDataState>({
     trains: [],
     serviceStatuses: [],
@@ -120,36 +122,67 @@ export function useTrainData(
   }, []);
 
   const refresh = useCallback(() => {
-    void loadTrains();
-    void loadServiceStatus();
+    const signal = pollingControllerRef.current?.signal;
+    void loadTrains(signal);
+    void loadServiceStatus(signal);
   }, [loadTrains, loadServiceStatus]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    const { signal } = controller;
     const trainGate = trainRequestGate.current;
     const statusGate = statusRequestGate.current;
+    const polling = new PagePollingController(
+      [
+        {
+          intervalMs: REFRESH_MS,
+          run: (signal) => void loadTrains(signal),
+        },
+        {
+          intervalMs: 30_000,
+          run: (signal) => void loadServiceStatus(signal),
+        },
+      ],
+      {
+        setInterval: (callback, delayMs) =>
+          window.setInterval(callback, delayMs),
+        clearInterval: (handle) =>
+          window.clearInterval(handle as number),
+      },
+      () => {
+        trainGate.reset();
+        statusGate.reset();
+      },
+    );
+    pollingControllerRef.current = polling;
 
-    // 初回取得
-    void loadTrains(signal);
-    void loadServiceStatus(signal);
+    const onVisibilityChange = () => {
+      polling.handleVisibilityChange(
+        document.visibilityState === "visible",
+        navigator.onLine,
+      );
+    };
+    const onOnline = () =>
+      polling.handleOnline(document.visibilityState === "visible");
+    const onOffline = () => polling.handleOffline();
 
-    // 列車位置のポーリング
-    const trainTimer = setInterval(() => {
-      void loadTrains(signal);
-    }, REFRESH_MS);
-
-    // 運行情報のポーリング(30秒ごと)
-    const statusTimer = setInterval(() => {
-      void loadServiceStatus(signal);
-    }, 30000);
+    polling.start(
+      document.visibilityState === "visible",
+      navigator.onLine,
+    );
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
 
     return () => {
-      controller.abort();
-      trainGate.reset();
-      statusGate.reset();
-      clearInterval(trainTimer);
-      clearInterval(statusTimer);
+      document.removeEventListener(
+        "visibilitychange",
+        onVisibilityChange,
+      );
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+      polling.stop();
+      if (pollingControllerRef.current === polling) {
+        pollingControllerRef.current = null;
+      }
     };
   }, [loadTrains, loadServiceStatus]);
 

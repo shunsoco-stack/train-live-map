@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   fetchCommunityReports,
   submitCommunityReport,
@@ -10,6 +10,8 @@ import {
   safeReadStorage,
   safeWriteStorage,
 } from "@/lib/browserGuidance";
+import { PagePollingController } from "@/lib/pagePolling";
+import { InFlightRequestGate } from "@/lib/requestGate";
 import type {
   CommunityReportSummary,
   CommunityReportVote,
@@ -42,6 +44,8 @@ function reporterId(): string {
 }
 
 export function useCommunityReports() {
+  const requestGate = useRef(new InFlightRequestGate());
+  const pollingControllerRef = useRef<PagePollingController | null>(null);
   const [state, setState] = useState<CommunityReportState>({
     summaries: [],
     loading: true,
@@ -55,6 +59,8 @@ export function useCommunityReports() {
   });
 
   const load = useCallback(async (signal?: AbortSignal) => {
+    const token = requestGate.current.begin();
+    if (!token) return;
     try {
       const data = await fetchCommunityReports(signal);
       setState((previous) => ({
@@ -73,18 +79,59 @@ export function useCommunityReports() {
             ? error.message
             : "みんなの運行情報を取得できませんでした。",
       }));
+    } finally {
+      requestGate.current.release(token);
     }
   }, []);
 
   useEffect(() => {
-    const controller = new AbortController();
-    void load(controller.signal);
-    const timer = window.setInterval(() => {
-      void load(controller.signal);
-    }, REFRESH_MS);
+    const gate = requestGate.current;
+    const polling = new PagePollingController(
+      [
+        {
+          intervalMs: REFRESH_MS,
+          run: (signal) => void load(signal),
+        },
+      ],
+      {
+        setInterval: (callback, delayMs) =>
+          window.setInterval(callback, delayMs),
+        clearInterval: (handle) =>
+          window.clearInterval(handle as number),
+      },
+      () => gate.reset(),
+    );
+    pollingControllerRef.current = polling;
+
+    const onVisibilityChange = () => {
+      polling.handleVisibilityChange(
+        document.visibilityState === "visible",
+        navigator.onLine,
+      );
+    };
+    const onOnline = () =>
+      polling.handleOnline(document.visibilityState === "visible");
+    const onOffline = () => polling.handleOffline();
+
+    polling.start(
+      document.visibilityState === "visible",
+      navigator.onLine,
+    );
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+
     return () => {
-      controller.abort();
-      window.clearInterval(timer);
+      document.removeEventListener(
+        "visibilitychange",
+        onVisibilityChange,
+      );
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+      polling.stop();
+      if (pollingControllerRef.current === polling) {
+        pollingControllerRef.current = null;
+      }
     };
   }, [load]);
 
