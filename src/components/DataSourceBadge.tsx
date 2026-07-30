@@ -9,9 +9,11 @@ export function DataSourceBadge({
   source,
   className = "",
 }: {
-  source: ProviderSource;
+  source: ProviderSource | null;
   className?: string;
 }) {
+  if (!source) return null;
+
   if (source === "odpt") {
     return (
       <span

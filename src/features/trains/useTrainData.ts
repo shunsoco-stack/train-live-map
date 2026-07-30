@@ -12,7 +12,7 @@ interface TrainDataState {
   serviceStatuses: ServiceStatus[];
   isMock: boolean;
   /** 実際に使われたデータ取得元 */
-  source: ProviderSource;
+  source: ProviderSource | null;
   /** 実データ失敗によるモックフォールバックか */
   fallback: boolean;
   /** モック表示中などの注意書き */
@@ -42,8 +42,8 @@ export function useTrainData(): UseTrainDataResult {
   const [state, setState] = useState<TrainDataState>({
     trains: [],
     serviceStatuses: [],
-    isMock: true,
-    source: "mock",
+    isMock: false,
+    source: null,
     fallback: false,
     notice: null,
     loading: true,

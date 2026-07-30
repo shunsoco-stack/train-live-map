@@ -9,6 +9,7 @@ import {
 } from "@/lib/odpt/api";
 import { createLogger } from "@/lib/logger";
 import type { ProviderSource, ServiceStatus, TrainLocation } from "@/types/train";
+import { resolveProviderResult } from "@/services/trainLocationPolicy";
 
 /**
  * サービス層。
@@ -71,54 +72,37 @@ export interface ServiceStatusesResult {
   notice: string | null;
 }
 
-const MOCK_NOTICE_NO_TOKEN = "現在モックデータを表示しています(ODPT 未設定)。";
-const MOCK_NOTICE_FALLBACK = "現在モックデータを表示しています(実データの取得に失敗したため)。";
-const MOCK_NOTICE_EMPTY =
-  "現在モックデータを表示しています(ODPTから対象列車を取得できなかったため)。";
-
 async function withProvider<T>(
   real: TrainLocationProvider | null,
   call: (p: TrainLocationProvider) => Promise<T>,
-): Promise<{ value: T; source: ProviderSource; fallback: boolean; notice: string | null }> {
-  const mock = getMockProvider();
-
-  if (!real) {
-    const value = await call(mock);
-    return { value, source: "mock", fallback: false, notice: MOCK_NOTICE_NO_TOKEN };
-  }
-
-  try {
-    const value = await call(real);
-    return { value, source: "odpt", fallback: false, notice: null };
-  } catch (err) {
-    log.warn("実データ取得に失敗、モックへフォールバック", {
-      message: err instanceof Error ? err.message : String(err),
-    });
-    const value = await call(mock);
-    return { value, source: "mock", fallback: true, notice: MOCK_NOTICE_FALLBACK };
-  }
+  isEmpty?: (value: T) => boolean,
+) {
+  return resolveProviderResult({
+    realCall: real ? () => call(real) : null,
+    mockCall: () => call(getMockProvider()),
+    isEmpty,
+    onFallback: (reason, error) => {
+      if (reason === "empty") {
+        log.warn("ODPTの対象列車が0件、開発用モックへフォールバック");
+        return;
+      }
+      log.warn("実データ取得に失敗、開発用モックへフォールバック", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    },
+  });
 }
 
 export const trainLocationService = {
   async getTrains(): Promise<TrainsResult> {
     const real = getRealProvider();
-    const { value, source, fallback, notice } = await withProvider(real, (p) =>
-      p.getTrainLocations(),
+    const { value, source, isMock, fallback, notice } = await withProvider(
+      real,
+      (p) => p.getTrainLocations(),
+      (trains) => trains.length === 0,
     );
 
-    if (source === "odpt" && value.length === 0) {
-      log.warn("ODPTの対象列車が0件、モックへフォールバック");
-      const trains = await getMockProvider().getTrainLocations();
-      return {
-        trains,
-        source: "mock",
-        isMock: true,
-        fallback: true,
-        notice: MOCK_NOTICE_EMPTY,
-      };
-    }
-
-    return { trains: value, source, isMock: source === "mock", fallback, notice };
+    return { trains: value, source, isMock, fallback, notice };
   },
 
   async getServiceStatus(): Promise<ServiceStatusResult> {
@@ -134,13 +118,14 @@ export const trainLocationService = {
 
   async getServiceStatuses(): Promise<ServiceStatusesResult> {
     const real = getRealProvider();
-    const { value, source, fallback, notice } = await withProvider(real, (p) =>
-      p.getServiceStatuses(),
+    const { value, source, isMock, fallback, notice } = await withProvider(
+      real,
+      (p) => p.getServiceStatuses(),
     );
     return {
       serviceStatuses: value,
       source,
-      isMock: source === "mock",
+      isMock,
       fallback,
       notice,
     };

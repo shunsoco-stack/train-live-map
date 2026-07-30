@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { AdSenseBanner } from "@/components/AdSenseBanner";
 import { AppHeader } from "@/components/AppHeader";
 import { BrowserGuidance } from "@/components/BrowserGuidance";
@@ -211,6 +211,30 @@ export function TrainDashboard() {
               <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
               <span className="text-sm">列車情報を読み込み中…</span>
             </div>
+          </div>
+        )}
+
+        {!loading && !error && trains.length === 0 && (
+          <div className="pointer-events-none absolute inset-0 z-[9] flex items-center justify-center p-6">
+            <section
+              className="app-material pointer-events-auto max-w-sm rounded-2xl border border-rail-border p-5 text-center shadow-xl"
+              aria-live="polite"
+            >
+              <h2 className="text-base font-bold text-rail-text">
+                現在表示できる列車情報がありません
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-rail-muted">
+                終電後、または一時的に運行中の列車情報がない可能性があります。
+              </p>
+              <button
+                type="button"
+                onClick={refresh}
+                className="pressable mx-auto mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-orange-500 px-4 py-2 text-sm font-bold text-white hover:bg-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
+              >
+                <RefreshCw className="h-4 w-4" aria-hidden />
+                再読み込み
+              </button>
+            </section>
           </div>
         )}
       </main>
