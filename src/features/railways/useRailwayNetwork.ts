@@ -7,7 +7,8 @@ import {
   FALLBACK_RETRY_DELAY_MS,
   shouldRetryFallbackRailwayNetwork,
 } from "@/features/railways/railwaySelection";
-import { fetchRailways } from "@/lib/apiClient";
+import { apiErrorMessage, fetchRailways } from "@/lib/apiClient";
+import { createLogger } from "@/lib/logger";
 import type {
   RailwayFilterOption,
   RailwayMapLine,
@@ -21,6 +22,7 @@ const fallbackLine: RailwayMapLine = {
   color: "#f68b1e",
   coordinates: [ROUTE_COORDINATES_RAW],
 };
+const log = createLogger("railway-network");
 
 interface RailwayNetworkState {
   lines: RailwayMapLine[];
@@ -51,8 +53,14 @@ export function useRailwayNetwork(): RailwayNetworkState {
           source: response.source,
         });
       })
-      .catch(() => {
+      .catch((error) => {
         if (controller.signal.aborted) return;
+        log.warn("路線情報の取得に失敗、固定データを維持", {
+          message: apiErrorMessage(
+            error,
+            "路線情報を取得できませんでした。",
+          ),
+        });
         setState((previous) => ({
           ...previous,
           loading: false,

@@ -7,6 +7,9 @@ import type {
 
 export const COMMUNITY_REPORT_WINDOW_MS = 30 * 60 * 1000;
 export const COMMUNITY_REPORT_COOLDOWN_SECONDS = 60;
+export const COMMUNITY_REPORT_LINE_ID_MAX_LENGTH = 64;
+
+const LINE_ID_PATTERN = /^[a-z0-9-]+$/;
 
 const STATUS_PRIORITY: Record<CommunityReportStatus, number> = {
   "on-time": 0,
@@ -27,11 +30,12 @@ export function validateCommunityReportVote(
 ): CommunityReportVote | null {
   if (!input || typeof input !== "object") return null;
   const value = input as Record<string, unknown>;
-  const lineId =
-    typeof value.lineId === "string" ? value.lineId.trim() : "";
+  const lineId = typeof value.lineId === "string" ? value.lineId : "";
   const status = value.status;
   if (
     !lineId ||
+    lineId.length > COMMUNITY_REPORT_LINE_ID_MAX_LENGTH ||
+    !LINE_ID_PATTERN.test(lineId) ||
     (status !== "on-time" &&
       status !== "delayed" &&
       status !== "suspended")
@@ -40,8 +44,9 @@ export function validateCommunityReportVote(
   }
 
   if (status === "delayed") {
-    const delayMinutes = Number(value.delayMinutes);
+    const delayMinutes = value.delayMinutes;
     if (
+      typeof delayMinutes !== "number" ||
       !Number.isInteger(delayMinutes) ||
       delayMinutes < 1 ||
       delayMinutes > 120

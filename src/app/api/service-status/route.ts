@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import {
+  NO_STORE_CACHE_HEADERS,
+  SHORT_CDN_CACHE_HEADERS,
+} from "@/lib/apiCache";
 import { trainLocationService } from "@/services/trainLocationService";
 import type { ServiceStatusApiResponse } from "@/types/train";
 import { createLogger } from "@/lib/logger";
@@ -23,12 +27,14 @@ export async function GET() {
       fallback,
       notice,
     };
-    return NextResponse.json(body);
+    return NextResponse.json(body, {
+      headers: SHORT_CDN_CACHE_HEADERS,
+    });
   } catch (error) {
     log.error("失敗", { message: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: "運行情報の取得に失敗しました" },
-      { status: 500 },
+      { status: 500, headers: NO_STORE_CACHE_HEADERS },
     );
   }
 }

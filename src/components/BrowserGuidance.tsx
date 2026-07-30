@@ -13,25 +13,15 @@ import {
 import {
   SAFARI_INSTALL_DISMISSED_STORAGE_KEY,
   X_BROWSER_GUIDANCE_STORAGE_KEY,
+  safeGetBrowserStorage,
   safeReadStorage,
   safeWriteStorage,
   selectBrowserGuidance,
   type BrowserGuidanceKind,
-  type StorageLike,
 } from "@/lib/browserGuidance";
 
 interface BrowserGuidanceProps {
   hideSafariInstallGuidance?: boolean;
-}
-
-function getBrowserStorage(
-  key: "localStorage" | "sessionStorage",
-): StorageLike | null {
-  try {
-    return window[key];
-  } catch {
-    return null;
-  }
 }
 
 export function BrowserGuidance({
@@ -55,8 +45,8 @@ export function BrowserGuidance({
       return;
     }
 
-    const sessionStorage = getBrowserStorage("sessionStorage");
-    const localStorage = getBrowserStorage("localStorage");
+    const sessionStorage = safeGetBrowserStorage("sessionStorage");
+    const localStorage = safeGetBrowserStorage("localStorage");
     const navigatorWithStandalone = window.navigator as Navigator & {
       standalone?: boolean;
     };
@@ -85,7 +75,7 @@ export function BrowserGuidance({
 
   const dismissXGuidance = useCallback(() => {
     safeWriteStorage(
-      getBrowserStorage("sessionStorage"),
+      safeGetBrowserStorage("sessionStorage"),
       X_BROWSER_GUIDANCE_STORAGE_KEY,
       "dismissed",
     );
@@ -94,7 +84,7 @@ export function BrowserGuidance({
 
   const dismissSafariGuidance = useCallback(() => {
     safeWriteStorage(
-      getBrowserStorage("localStorage"),
+      safeGetBrowserStorage("localStorage"),
       SAFARI_INSTALL_DISMISSED_STORAGE_KEY,
       String(Date.now()),
     );

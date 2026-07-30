@@ -1,12 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { fetchServiceStatus, fetchTrains } from "@/lib/apiClient";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  apiErrorMessage,
+  fetchServiceStatus,
+  fetchTrains,
+} from "@/lib/apiClient";
+import { createLogger } from "@/lib/logger";
+import { PagePollingController } from "@/lib/pagePolling";
+import { InFlightRequestGate } from "@/lib/requestGate";
 import type { ProviderSource, ServiceStatus, TrainLocation } from "@/types/train";
 import { calculateServerClockOffsetMs } from "@/lib/time";
 
 /** データ再取得間隔(ミリ秒)。5〜10秒の範囲。 */
 export const REFRESH_MS = 7000;
+const log = createLogger("train-data");
 
 interface TrainDataState {
   trains: TrainLocation[];
@@ -22,6 +30,8 @@ interface TrainDataState {
   loading: boolean;
   /** 直近の取得でエラーが発生したか */
   error: string | null;
+  /** ブラウザがネットワーク接続ありと判定しているか */
+  isOnline: boolean;
   /** 最終データ更新時刻(クライアントで取得成功した時刻) */
   lastUpdatedAt: Date | null;
   /** 表示中データ自体の更新時刻。ODPT 利用時は dc:date が元になる。 */
@@ -41,7 +51,16 @@ interface UseTrainDataResult extends TrainDataState {
  * - 運行情報: 初回 + 30 秒ごと
  * - 失敗しても直前のデータを保持し、画面が真っ白にならないようにする
  */
-export function useTrainData(): UseTrainDataResult {
+export function useTrainData(
+  visibleLineIds: ReadonlySet<string>,
+): UseTrainDataResult {
+  const requestedLineIds = useMemo(
+    () => [...visibleLineIds].sort(),
+    [visibleLineIds],
+  );
+  const trainRequestGate = useRef(new InFlightRequestGate());
+  const statusRequestGate = useRef(new InFlightRequestGate());
+  const pollingControllerRef = useRef<PagePollingController | null>(null);
   const [state, setState] = useState<TrainDataState>({
     trains: [],
     serviceStatuses: [],
@@ -51,14 +70,18 @@ export function useTrainData(): UseTrainDataResult {
     notice: null,
     loading: true,
     error: null,
+    isOnline:
+      typeof navigator === "undefined" ? true : navigator.onLine,
     lastUpdatedAt: null,
     dataUpdatedAt: null,
     serverClockOffsetMs: 0,
   });
 
   const loadTrains = useCallback(async (signal?: AbortSignal) => {
+    const token = trainRequestGate.current.begin();
+    if (!token) return;
     try {
-      const data = await fetchTrains(signal);
+      const data = await fetchTrains(requestedLineIds, signal);
       const nextClockOffsetMs = calculateServerClockOffsetMs(
         Date.now(),
         data.generatedAt,
@@ -82,53 +105,110 @@ export function useTrainData(): UseTrainDataResult {
       setState((prev) => ({
         ...prev,
         loading: false,
-        error:
-          err instanceof Error
-            ? err.message
-            : "列車情報の取得に失敗しました",
+        error: apiErrorMessage(
+          err,
+          "列車情報の取得に失敗しました",
+        ),
       }));
+    } finally {
+      trainRequestGate.current.release(token);
     }
-  }, []);
+  }, [requestedLineIds]);
 
   const loadServiceStatus = useCallback(async (signal?: AbortSignal) => {
+    const token = statusRequestGate.current.begin();
+    if (!token) return;
     try {
       const data = await fetchServiceStatus(signal);
       setState((prev) => ({
         ...prev,
         serviceStatuses: data.serviceStatuses ?? [data.serviceStatus],
       }));
-    } catch {
-      // 運行情報の失敗は致命的でないため、静かに無視(既存表示を維持)
+    } catch (error) {
+      if (!signal?.aborted) {
+        log.warn("運行情報の取得に失敗", {
+          message: apiErrorMessage(
+            error,
+            "運行情報を取得できませんでした。",
+          ),
+        });
+      }
+    } finally {
+      statusRequestGate.current.release(token);
     }
   }, []);
 
   const refresh = useCallback(() => {
-    void loadTrains();
-    void loadServiceStatus();
+    const signal = pollingControllerRef.current?.signal;
+    void loadTrains(signal);
+    void loadServiceStatus(signal);
   }, [loadTrains, loadServiceStatus]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    const { signal } = controller;
+    const trainGate = trainRequestGate.current;
+    const statusGate = statusRequestGate.current;
+    const polling = new PagePollingController(
+      [
+        {
+          intervalMs: REFRESH_MS,
+          run: (signal) => void loadTrains(signal),
+        },
+        {
+          intervalMs: 30_000,
+          run: (signal) => void loadServiceStatus(signal),
+        },
+      ],
+      {
+        setInterval: (callback, delayMs) =>
+          window.setInterval(callback, delayMs),
+        clearInterval: (handle) =>
+          window.clearInterval(handle as number),
+      },
+      () => {
+        trainGate.reset();
+        statusGate.reset();
+      },
+    );
+    pollingControllerRef.current = polling;
 
-    // 初回取得
-    void loadTrains(signal);
-    void loadServiceStatus(signal);
+    const onVisibilityChange = () => {
+      polling.handleVisibilityChange(
+        document.visibilityState === "visible",
+        navigator.onLine,
+      );
+    };
+    const onOnline = () => {
+      setState((previous) => ({ ...previous, isOnline: true }));
+      polling.handleOnline(document.visibilityState === "visible");
+    };
+    const onOffline = () => {
+      setState((previous) => ({
+        ...previous,
+        isOnline: false,
+        loading: false,
+      }));
+      polling.handleOffline();
+    };
 
-    // 列車位置のポーリング
-    const trainTimer = setInterval(() => {
-      void loadTrains(signal);
-    }, REFRESH_MS);
-
-    // 運行情報のポーリング(30秒ごと)
-    const statusTimer = setInterval(() => {
-      void loadServiceStatus(signal);
-    }, 30000);
+    polling.start(
+      document.visibilityState === "visible",
+      navigator.onLine,
+    );
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
 
     return () => {
-      controller.abort();
-      clearInterval(trainTimer);
-      clearInterval(statusTimer);
+      document.removeEventListener(
+        "visibilitychange",
+        onVisibilityChange,
+      );
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+      polling.stop();
+      if (pollingControllerRef.current === polling) {
+        pollingControllerRef.current = null;
+      }
     };
   }, [loadTrains, loadServiceStatus]);
 

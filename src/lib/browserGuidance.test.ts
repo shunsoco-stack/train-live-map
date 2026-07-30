@@ -5,6 +5,7 @@ import {
   isIOSSafari,
   isIOSDevice,
   isXInAppBrowser,
+  safeGetBrowserStorage,
   safeReadStorage,
   safeWriteStorage,
   selectBrowserGuidance,
@@ -166,4 +167,37 @@ test("ストレージ利用不可でも読み書きが例外にならない", ()
   };
   assert.equal(safeReadStorage(blockedStorage, "key"), null);
   assert.equal(safeWriteStorage(blockedStorage, "key", "value"), false);
+});
+
+test("ブラウザのストレージgetterが例外でも安全に扱う", () => {
+  const blockedHost = Object.defineProperties(
+    {},
+    {
+      localStorage: {
+        get() {
+          throw new Error("blocked");
+        },
+      },
+      sessionStorage: {
+        get() {
+          throw new Error("blocked");
+        },
+      },
+    },
+  );
+
+  assert.equal(
+    safeGetBrowserStorage(
+      "localStorage",
+      blockedHost as never,
+    ),
+    null,
+  );
+  assert.equal(
+    safeGetBrowserStorage(
+      "sessionStorage",
+      blockedHost as never,
+    ),
+    null,
+  );
 });

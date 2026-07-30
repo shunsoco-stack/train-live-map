@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  apiErrorMessage,
   deletePushSubscription,
   fetchPushConfig,
   savePushSubscription,
@@ -9,6 +10,7 @@ import {
 import {
   isIOSDevice,
   isStandaloneMode,
+  safeGetBrowserStorage,
   safeReadStorage,
   safeWriteStorage,
 } from "@/lib/browserGuidance";
@@ -40,7 +42,7 @@ interface NavigatorWithStandalone extends Navigator {
 
 function readStoredLineIds(): string[] {
   const stored = safeReadStorage(
-    typeof window === "undefined" ? null : window.localStorage,
+    safeGetBrowserStorage("localStorage"),
     PUSH_LINES_STORAGE_KEY,
   );
   if (!stored) return [];
@@ -63,7 +65,7 @@ function readStoredLineIds(): string[] {
 
 function storeLineIds(lineIds: readonly string[]): void {
   safeWriteStorage(
-    window.localStorage,
+    safeGetBrowserStorage("localStorage"),
     PUSH_LINES_STORAGE_KEY,
     JSON.stringify(lineIds),
   );
@@ -199,10 +201,10 @@ export function usePushNotifications() {
         setState((previous) => ({
           ...previous,
           status: "error",
-          error:
-            error instanceof Error
-              ? error.message
-              : "通知機能を準備できませんでした。",
+          error: apiErrorMessage(
+            error,
+            "通知機能を準備できませんでした。",
+          ),
         }));
       }
     }
@@ -288,10 +290,10 @@ export function usePushNotifications() {
         setState((previous) => ({
           ...previous,
           busy: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "通知設定を更新できませんでした。",
+          error: apiErrorMessage(
+            error,
+            "通知設定を更新できませんでした。",
+          ),
         }));
         return false;
       }

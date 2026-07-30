@@ -7,7 +7,11 @@ import {
   validateCommunityReportVote,
 } from "@/lib/communityReports";
 import { getRailwayCatalogLine } from "@/data/railwayCatalog";
-import { getCommunityReportStore } from "@/server/communityReportStore";
+import { createLogger } from "@/lib/logger";
+import {
+  getCommunityReportStore,
+  type CommunityReportStore,
+} from "@/server/communityReportStore";
 import { maybeSendSuspensionSpikeNotification } from "@/server/pushNotifier";
 import type {
   CommunityReportsApiResponse,
@@ -15,6 +19,7 @@ import type {
 } from "@/types/community";
 
 export const dynamic = "force-dynamic";
+const log = createLogger("api.community-reports");
 
 function isLocalRequest(request: NextRequest): boolean {
   return /^(localhost|127\.0\.0\.1)$/.test(request.nextUrl.hostname);
@@ -26,8 +31,8 @@ function votingEnabled(request: NextRequest, persistent: boolean): boolean {
 
 async function responsePayload(
   request: NextRequest,
+  store: CommunityReportStore = getCommunityReportStore(),
 ): Promise<CommunityReportsApiResponse> {
-  const store = getCommunityReportStore();
   const reports = await store.listActive();
   return {
     summaries: aggregateCommunityReports(
@@ -53,14 +58,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const store = getCommunityReportStore();
-    if (!votingEnabled(request, store.persistent)) {
-      return NextResponse.json(
-        { error: "共有投票の保存先を準備中です。" },
-        { status: 503 },
-      );
-    }
-
     const reporterId = request.headers.get("x-community-reporter") ?? "";
     if (!/^[A-Za-z0-9_-]{12,100}$/.test(reporterId)) {
       return NextResponse.json(
@@ -69,7 +66,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const vote = validateCommunityReportVote(await request.json());
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "投票内容を確認してください。" },
+        { status: 400 },
+      );
+    }
+    const vote = validateCommunityReportVote(body);
     const catalogLine = vote
       ? getRailwayCatalogLine(vote.lineId)
       : undefined;
@@ -80,6 +86,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const store = getCommunityReportStore();
+    if (!votingEnabled(request, store.persistent)) {
+      return NextResponse.json(
+        { error: "共有投票の保存先を準備中です。" },
+        { status: 503 },
+      );
+    }
     const reporterHash = createHash("sha256")
       .update(`train-live-map:v1:${reporterId}`)
       .digest("hex")
@@ -97,31 +110,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const createdAt = new Date().toISOString();
-    await store.save({ ...vote, reporterHash, createdAt });
-    if (vote.status === "suspended") {
-      try {
-        const activeReports = await store.listActive();
-        await maybeSendSuspensionSpikeNotification({
-          reports: activeReports.map((item) => item.record),
-          lineId: vote.lineId,
-          lineName: catalogLine.name,
-        });
-      } catch {
-        // 通知失敗で利用者の投票自体を失敗扱いにしない。
+    try {
+      const createdAt = new Date().toISOString();
+      await store.save({ ...vote, reporterHash, createdAt });
+      if (vote.status === "suspended") {
+        try {
+          const activeReports = await store.listActive();
+          await maybeSendSuspensionSpikeNotification({
+            reports: activeReports.map((item) => item.record),
+            lineId: vote.lineId,
+            lineName: catalogLine.name,
+          });
+        } catch {
+          // 通知失敗で利用者の投票自体を失敗扱いにしない。
+          log.warn("投票後のPush通知処理に失敗");
+        }
       }
-    }
-    const payload = await responsePayload(request);
-    const summary = payload.summaries.find(
-      (item) => item.lineId === vote.lineId,
-    );
-    if (!summary) throw new Error("投票結果を集計できませんでした");
+      const payload = await responsePayload(request, store);
+      const summary = payload.summaries.find(
+        (item) => item.lineId === vote.lineId,
+      );
+      if (!summary) throw new Error("投票結果を集計できませんでした");
 
-    const response: CommunityReportSubmitResponse = {
-      ...payload,
-      summary,
-    };
-    return NextResponse.json(response, { status: 201 });
+      const response: CommunityReportSubmitResponse = {
+        ...payload,
+        summary,
+      };
+      return NextResponse.json(response, { status: 201 });
+    } catch (error) {
+      try {
+        await store.releaseRateLimit(reporterHash, vote.lineId);
+      } catch {
+        log.error("投票失敗後のクールダウン解放にも失敗");
+      }
+      throw error;
+    }
   } catch {
     return NextResponse.json(
       { error: "投票を保存できませんでした。" },
