@@ -25,6 +25,8 @@ interface RailwayFilterSheetProps {
   visibleIds: ReadonlySet<string>;
   onChange: (ids: Set<string>) => void;
   loading: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 export function RailwayFilterSheet({
@@ -32,8 +34,9 @@ export function RailwayFilterSheet({
   visibleIds,
   onChange,
   loading,
+  open,
+  onOpenChange,
 }: RailwayFilterSheetProps) {
-  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -78,11 +81,11 @@ export function RailwayFilterSheet({
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") onOpenChange(false);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open]);
+  }, [onOpenChange, open]);
 
   const availableOptions = useMemo(
     () => options.filter((option) => option.available),
@@ -130,7 +133,7 @@ export function RailwayFilterSheet({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => onOpenChange(true)}
         className="app-material pressable pointer-events-auto absolute bottom-[4.75rem] right-3 z-20 flex min-h-12 items-center gap-2 rounded-full border border-orange-300/70 px-3.5 text-sm font-bold text-rail-text hover:border-rail-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
         aria-label={`表示路線を選ぶ。${selectedCount}路線を表示中`}
       >
@@ -151,7 +154,7 @@ export function RailwayFilterSheet({
           <button
             type="button"
             aria-label="路線選択を閉じる"
-            onClick={() => setOpen(false)}
+            onClick={() => onOpenChange(false)}
             className="animate-scrim-enter absolute inset-0 bg-black/60 backdrop-blur-[2px]"
           />
 
@@ -174,7 +177,7 @@ export function RailwayFilterSheet({
               </div>
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={() => onOpenChange(false)}
                 aria-label="閉じる"
                 className="pressable flex h-11 w-11 items-center justify-center rounded-full text-rail-muted hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
               >

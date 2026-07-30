@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Layers3, Loader2, RefreshCw } from "lucide-react";
 import { AdSenseBanner } from "@/components/AdSenseBanner";
 import { AppHeader } from "@/components/AppHeader";
 import { BrowserGuidance } from "@/components/BrowserGuidance";
@@ -30,6 +30,7 @@ import { useNow } from "@/lib/useNow";
 import { errorMessageForConnection } from "@/lib/networkStatus";
 import { applyServerClockOffset } from "@/lib/time";
 import { serviceStatusesForVisibleLines } from "@/lib/serviceStatus";
+import { resolveTrainDashboardViewState } from "@/lib/trainDashboardViewState";
 import {
   matchesFilter,
   TRAIN_FILTERS,
@@ -73,6 +74,7 @@ export function TrainDashboard() {
 
   const [filter, setFilter] = useState<TrainFilterKey>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [railwayFilterOpen, setRailwayFilterOpen] = useState(false);
 
   useEffect(() => {
     if (railwayLoading || railwaySelectionReady.current) return;
@@ -153,6 +155,13 @@ export function TrainDashboard() {
     [trains, selectedId],
   );
   const displayedError = errorMessageForConnection(isOnline, error);
+  const viewState = resolveTrainDashboardViewState({
+    loading,
+    visibleLineCount: visibleLineIds.size,
+    trainCount: trainsOnVisibleLines.length,
+    hasLoadedData: lastUpdatedAt !== null,
+    error: displayedError,
+  });
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-rail-bg">
@@ -178,6 +187,8 @@ export function TrainDashboard() {
           visibleIds={visibleLineIds}
           onChange={handleVisibleLineIdsChange}
           loading={railwayLoading}
+          open={railwayFilterOpen}
+          onOpenChange={setRailwayFilterOpen}
         />
 
         <CommunityReportSheet
@@ -196,7 +207,7 @@ export function TrainDashboard() {
             ))}
           </div>
           <DataSourceNotice notice={notice} fallback={fallback} />
-          {displayedError && (
+          {viewState === "error" && displayedError && (
             <ErrorNotice message={displayedError} onRetry={refresh} />
           )}
         </div>
@@ -207,11 +218,13 @@ export function TrainDashboard() {
         </div>
 
         <BrowserGuidance
-          hideSafariInstallGuidance={loading || selectedTrain !== null}
+          hideSafariInstallGuidance={
+            viewState === "loading" || selectedTrain !== null
+          }
         />
 
         {/* 初回ロード表示 */}
-        {loading && isOnline && (
+        {viewState === "loading" && isOnline && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-rail-bg/80">
             <div className="flex items-center gap-2 text-rail-muted">
               <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
@@ -220,7 +233,28 @@ export function TrainDashboard() {
           </div>
         )}
 
-        {!loading && !displayedError && trains.length === 0 && (
+        {viewState === "no-selection" && (
+          <div className="pointer-events-none absolute inset-0 z-[9] flex items-center justify-center p-6">
+            <section
+              className="app-material pointer-events-auto max-w-sm rounded-2xl border border-rail-border p-5 text-center shadow-xl"
+              aria-live="polite"
+            >
+              <h2 className="text-base font-bold text-rail-text">
+                表示する路線が選択されていません
+              </h2>
+              <button
+                type="button"
+                onClick={() => setRailwayFilterOpen(true)}
+                className="pressable mx-auto mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-orange-500 px-4 py-2 text-sm font-bold text-white hover:bg-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
+              >
+                <Layers3 className="h-4 w-4" aria-hidden />
+                路線を選ぶ
+              </button>
+            </section>
+          </div>
+        )}
+
+        {viewState === "no-trains" && (
           <div className="pointer-events-none absolute inset-0 z-[9] flex items-center justify-center p-6">
             <section
               className="app-material pointer-events-auto max-w-sm rounded-2xl border border-rail-border p-5 text-center shadow-xl"
