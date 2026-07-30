@@ -17,6 +17,7 @@ import {
   mapOdptRailDirection,
   mapTokaidoDirection,
 } from "@/lib/odpt/direction";
+import { classifySaikyoKawagoeTrain } from "@/lib/odpt/saikyoKawagoe";
 
 /**
  * ODPT のレスポンスを、UI が扱うドメイン型(TrainLocation / ServiceStatus)へ変換する。
@@ -180,25 +181,21 @@ export function odptTrainsToNetworkTrainLocations(
       ? network.stationByOdptId.get(toStationId)?.position
       : undefined;
     let lineId = network.catalogIdByOdptRailwayId.get(railwayId);
-    if (lineId === "kawagoe") {
-      // ODPTでは埼京線と川越線が1つのKawagoe系統として返る。
+    const actualPosition =
+      typeof train["geo:long"] === "number" &&
+      typeof train["geo:lat"] === "number"
+        ? ([train["geo:long"], train["geo:lat"]] as [number, number])
+        : undefined;
+    const saikyoKawagoeLineId = classifySaikyoKawagoeTrain(
+      railwayId,
+      [fromPosition, toPosition, actualPosition].filter(
+        (position): position is [number, number] => position !== undefined,
+      ),
+    );
+    if (saikyoKawagoeLineId) {
+      // 直通系統だけを現在の駅間で分け、単独の川越線は常に川越線とする。
       // 行先ではなく現在の駅間で分け、直通列車が全区間「川越線」になるのを防ぐ。
-      const actualPosition =
-        typeof train["geo:long"] === "number" &&
-        typeof train["geo:lat"] === "number"
-          ? ([train["geo:long"], train["geo:lat"]] as const)
-          : undefined;
-      const reachesKawagoeSection = [
-        fromPosition,
-        toPosition,
-        actualPosition,
-      ].some(
-        (position) =>
-          position !== undefined &&
-          position[0] < 139.62 &&
-          position[1] > 35.87,
-      );
-      lineId = reachesKawagoeSection ? "kawagoe" : "saikyo";
+      lineId = saikyoKawagoeLineId;
     }
     if (!lineId) continue;
 

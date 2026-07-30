@@ -2,6 +2,7 @@ import type {
   RailwayCatalogLine,
   RailwayFilterOption,
 } from "@/types/railway";
+import { createLogger } from "../lib/logger.ts";
 
 function line(
   id: string,
@@ -82,40 +83,65 @@ export const RAILWAY_CATALOG: RailwayCatalogLine[] = [
   line("narita", "成田線", "総武方面", "#00a6b2", ["成田", "Narita"]),
 ];
 
-function normalize(value: string): string {
-  return value
-    .normalize("NFKC")
-    .toLowerCase()
-    .replace(/jr[-\s]?east|jr東日本|東日本旅客鉄道/g, "")
-    .replace(/[・･\s_\-:().（）]/g, "")
-    .replace(/電車|列車|ライン|本線|線/g, "");
-}
+/**
+ * 公開APIで確認したJR東日本のODPT路線IDと、アプリ内表示単位の明示対応。
+ * 未確認IDを名称の部分一致で推測せず、実データ確認後にこの表へ追加する。
+ */
+export const ODPT_RAILWAY_TO_CATALOG: Readonly<Record<string, string>> = {
+  "odpt.Railway:JR-East.Agatsuma": "agatsuma",
+  "odpt.Railway:JR-East.Chuo": "chuo-main",
+  "odpt.Railway:JR-East.ChuoRapid": "chuo-rapid",
+  "odpt.Railway:JR-East.ChuoSobuLocal": "chuo-sobu-local",
+  "odpt.Railway:JR-East.Hachiko": "hachiko",
+  "odpt.Railway:JR-East.Ito": "ito",
+  "odpt.Railway:JR-East.Itsukaichi": "itsukaichi",
+  "odpt.Railway:JR-East.Joban": "joban",
+  "odpt.Railway:JR-East.JobanLocal": "joban-local",
+  "odpt.Railway:JR-East.JobanRapid": "joban-rapid",
+  "odpt.Railway:JR-East.Joetsu": "joetsu",
+  "odpt.Railway:JR-East.Kashima": "kashima",
+  "odpt.Railway:JR-East.Kawagoe": "kawagoe",
+  "odpt.Railway:JR-East.KeihinTohokuNegishi": "keihin-tohoku",
+  "odpt.Railway:JR-East.Keiyo": "keiyo",
+  "odpt.Railway:JR-East.Kururi": "kururi",
+  "odpt.Railway:JR-East.Musashino": "musashino",
+  "odpt.Railway:JR-East.NambuBranch": "nambu",
+  "odpt.Railway:JR-East.NaritaAbikoBranch": "narita",
+  "odpt.Railway:JR-East.Ome": "ome",
+  "odpt.Railway:JR-East.Sagami": "sagami",
+  "odpt.Railway:JR-East.SaikyoKawagoe": "saikyo",
+  "odpt.Railway:JR-East.ShonanShinjuku": "shonan-shinjuku",
+  "odpt.Railway:JR-East.Sobu": "sobu-main",
+  "odpt.Railway:JR-East.SobuRapid": "sobu-rapid",
+  "odpt.Railway:JR-East.SotetsuDirect": "sotetsu-through",
+  "odpt.Railway:JR-East.Sotobo": "sotobo",
+  "odpt.Railway:JR-East.Takasaki": "takasaki",
+  "odpt.Railway:JR-East.Togane": "togane",
+  "odpt.Railway:JR-East.Tokaido": "tokaido",
+  "odpt.Railway:JR-East.TsurumiOkawaBranch": "tsurumi",
+  "odpt.Railway:JR-East.Uchibo": "uchibo",
+  "odpt.Railway:JR-East.Utsunomiya": "utsunomiya",
+  "odpt.Railway:JR-East.Yamanote": "yamanote",
+  "odpt.Railway:JR-East.Yokohama": "yokohama",
+  "odpt.Railway:JR-East.Yokosuka": "yokosuka",
+};
 
-/** ODPTの路線ID・日本語名をアプリ内の表示単位へ対応付ける。 */
+const log = createLogger("railway-catalog");
+const warnedUnknownRailwayIds = new Set<string>();
+
+/** ODPTの路線IDを完全一致でアプリ内の表示単位へ対応付ける。 */
 export function findRailwayCatalogLine(
   odptId: string,
   title: string,
 ): RailwayCatalogLine | null {
-  const haystacks = [odptId.split(":").pop() ?? odptId, title].map(normalize);
+  const catalogId = ODPT_RAILWAY_TO_CATALOG[odptId];
+  if (catalogId) return getRailwayCatalogLine(catalogId) ?? null;
 
-  const candidates = RAILWAY_CATALOG.flatMap((item) =>
-    [item.name, ...item.aliases].map((alias) => ({
-      item,
-      needle: normalize(alias),
-    })),
-  )
-    .filter(({ needle }) => needle.length > 0)
-    .sort((a, b) => b.needle.length - a.needle.length);
-
-  return (
-    candidates.find(({ needle }) =>
-      haystacks.some((haystack) => haystack === needle),
-    )?.item ??
-    candidates.find(({ needle }) =>
-      haystacks.some((haystack) => haystack.includes(needle)),
-    )?.item ??
-    null
-  );
+  if (odptId && !warnedUnknownRailwayIds.has(odptId)) {
+    warnedUnknownRailwayIds.add(odptId);
+    log.warn("未対応のODPT路線IDを無視します", { odptId, title });
+  }
+  return null;
 }
 
 export function railwayFilterOptions(
