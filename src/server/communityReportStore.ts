@@ -7,6 +7,11 @@ import {
   redisConfiguration,
   type RedisConfiguration,
 } from "@/server/redis";
+import {
+  claimMemoryRateLimit,
+  communityRateLimitKey,
+  releaseMemoryRateLimit,
+} from "@/server/communityRateLimit";
 import type { CommunityReportRecord } from "@/types/community";
 
 const REPORTS_KEY = "train-live-map:community-reports:v1";
@@ -24,6 +29,10 @@ export interface CommunityReportStore {
     reporterHash: string,
     lineId: string,
   ): Promise<boolean>;
+  releaseRateLimit(
+    reporterHash: string,
+    lineId: string,
+  ): Promise<void>;
   save(report: CommunityReportRecord, now?: number): Promise<void>;
 }
 
@@ -68,13 +77,29 @@ class RedisCommunityReportStore implements CommunityReportStore {
   ): Promise<boolean> {
     const result = await redisCommand<string | null>(this.config, [
       "SET",
-      `${REPORTS_KEY}:rate:${reporterHash}:${lineId}`,
+      `${REPORTS_KEY}:rate:${communityRateLimitKey(
+        reporterHash,
+        lineId,
+      )}`,
       "1",
       "NX",
       "EX",
       COMMUNITY_REPORT_COOLDOWN_SECONDS,
     ]);
     return result === "OK";
+  }
+
+  async releaseRateLimit(
+    reporterHash: string,
+    lineId: string,
+  ): Promise<void> {
+    await redisCommand<number>(this.config, [
+      "DEL",
+      `${REPORTS_KEY}:rate:${communityRateLimitKey(
+        reporterHash,
+        lineId,
+      )}`,
+    ]);
   }
 
   async save(
@@ -154,15 +179,23 @@ class MemoryCommunityReportStore implements CommunityReportStore {
     lineId: string,
   ): Promise<boolean> {
     const state = memoryState();
-    const key = `${reporterHash}:${lineId}`;
-    const now = Date.now();
-    const expiresAt = state.rateLimits.get(key) ?? 0;
-    if (expiresAt > now) return false;
-    state.rateLimits.set(
-      key,
-      now + COMMUNITY_REPORT_COOLDOWN_SECONDS * 1000,
+    return claimMemoryRateLimit(
+      state.rateLimits,
+      reporterHash,
+      lineId,
+      COMMUNITY_REPORT_COOLDOWN_SECONDS * 1000,
     );
-    return true;
+  }
+
+  async releaseRateLimit(
+    reporterHash: string,
+    lineId: string,
+  ): Promise<void> {
+    releaseMemoryRateLimit(
+      memoryState().rateLimits,
+      reporterHash,
+      lineId,
+    );
   }
 
   async save(
