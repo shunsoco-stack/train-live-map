@@ -5,6 +5,7 @@ import { applyServerClockOffset } from "./time.ts";
 import {
   matchesFilter,
   resolveStatusLevel,
+  speedLabelJa,
   STALE_THRESHOLD_SECONDS,
   TRAIN_FILTERS,
   type TrainFilterKey,
@@ -129,4 +130,12 @@ test("3分類の件数合計がすべての件数と一致する", () => {
     );
     assert.equal(detailMatches.length, 1);
   }
+});
+
+test("推定速度を明示し、速度0は停車中と表示する", () => {
+  assert.equal(speedLabelJa(60, "estimated"), "約60 km/h（推定）");
+  assert.equal(speedLabelJa(72, "mock"), "約72 km/h（推定）");
+  assert.equal(speedLabelJa(0, "estimated"), "停車中");
+  assert.equal(speedLabelJa(60, "actual"), "60 km/h");
+  assert.equal(speedLabelJa(0, "actual"), "停車中");
 });

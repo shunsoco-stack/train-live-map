@@ -138,3 +138,14 @@ export function dataAccuracyLabelJa(accuracy: DataAccuracy): string {
       return "モック";
   }
 }
+
+/** 速度を、実測値と推定値を混同しない日本語表記へ変換する。 */
+export function speedLabelJa(
+  speedKmh: number,
+  dataAccuracy: DataAccuracy,
+): string {
+  if (speedKmh === 0) return "停車中";
+  return dataAccuracy === "actual"
+    ? `${speedKmh} km/h`
+    : `約${speedKmh} km/h（推定）`;
+}

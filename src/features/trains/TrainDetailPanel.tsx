@@ -19,6 +19,7 @@ import type { TrainLocation } from "@/types/train";
 import {
   dataAccuracyLabelJa,
   getStatusAppearance,
+  speedLabelJa,
   statusLabelJa,
   trainTypeLabelJa,
 } from "@/lib/trainStatus";
@@ -172,7 +173,7 @@ export function TrainDetailPanel({
             {train.delayMinutes > 0 ? `${train.delayMinutes}分` : "なし"}
           </DetailItem>
           <DetailItem icon={Gauge} label="速度">
-            {train.speedKmh} km/h
+            {speedLabelJa(train.speedKmh, train.dataAccuracy)}
           </DetailItem>
           {train.stoppedSince && (
             <DetailItem icon={Clock} label="停止時間">
@@ -208,7 +209,7 @@ export function TrainDetailPanel({
             id="train-detail-accuracy-note"
             className="border-t border-rail-border px-4 py-3 text-[11px] leading-relaxed text-rail-muted"
           >
-            ※ 位置情報はモックまたは駅間情報からの推定です。実際の列車位置とは異なる場合があります。
+            ※ 位置情報はモックまたは駅間情報からの推定です。速度も表示用の推定値です。実際の列車位置・速度とは異なる場合があります。
           </p>
         )}
       </div>
