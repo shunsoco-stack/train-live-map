@@ -7,7 +7,12 @@ import {
   validatePushLineIds,
   validatePushSubscription,
 } from "@/lib/pushSubscription";
+import { claimIpRateLimit } from "@/server/ipRateLimiter";
 import { getPushSubscriptionStore } from "@/server/pushSubscriptionStore";
+import {
+  extractForwardedIp,
+  hashReporterIp,
+} from "@/server/requestIdentity";
 import type {
   DeletePushSubscriptionRequest,
   SavePushSubscriptionRequest,
@@ -15,6 +20,9 @@ import type {
 } from "@/types/push";
 
 export const dynamic = "force-dynamic";
+
+const PUSH_IP_RATE_LIMIT_COUNT = 5;
+const PUSH_IP_RATE_LIMIT_SECONDS = 10 * 60;
 
 function trustedMutationOrigin(request: NextRequest): boolean {
   return isAllowedMutationOrigin({
@@ -80,18 +88,51 @@ export async function POST(request: NextRequest) {
         { status: 503 },
       );
     }
+
+    const ipClaim = await claimIpRateLimit({
+      scope: "push-subscription",
+      ipHash: hashReporterIp(
+        extractForwardedIp(
+          request.headers.get("x-forwarded-for"),
+        ),
+      ),
+      limit: PUSH_IP_RATE_LIMIT_COUNT,
+      windowSeconds: PUSH_IP_RATE_LIMIT_SECONDS,
+    });
+    if (!ipClaim.allowed) {
+      return NextResponse.json(
+        {
+          error:
+            "通知設定の変更回数が多いため、しばらく待ってから再試行してください。",
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(PUSH_IP_RATE_LIMIT_SECONDS),
+          },
+        },
+      );
+    }
+
     const id = subscriptionId(subscription.endpoint);
     const now = new Date().toISOString();
-    const existing = (await store.listActive())
-      .map((item) => item.record)
-      .find((item) => item.id === id);
-    await store.upsert({
+    const existing = await store.getById(id);
+    const upsertResult = await store.upsert({
       id,
       subscription,
       lineIds,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     });
+    if (upsertResult === "capacity") {
+      return NextResponse.json(
+        {
+          error:
+            "通知の登録上限に達しているため、現在は新しい端末を登録できません。",
+        },
+        { status: 503 },
+      );
+    }
     const response: SavePushSubscriptionResponse = {
       subscribed: true,
       lineIds,
