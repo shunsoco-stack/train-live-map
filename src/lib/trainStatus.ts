@@ -28,6 +28,10 @@ const APPEARANCE: Record<StatusLevel, Omit<StatusAppearance, "level">> = {
   unknown: { color: "#6b7280", ring: "#374151", label: "不明", symbol: "？" },
 };
 
+export const STATUS_APPEARANCES: readonly StatusAppearance[] = (
+  Object.keys(APPEARANCE) as StatusLevel[]
+).map((level) => ({ level, ...APPEARANCE[level] }));
+
 /**
  * ODPT実測では更新直後でも60〜80秒、末尾は5〜10分程度のばらつきがある。
  * 90秒で全列車が周期的に不明になる誤判定を避けるため、まず300秒とする。

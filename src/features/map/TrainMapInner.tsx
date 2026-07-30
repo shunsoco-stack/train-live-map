@@ -134,6 +134,9 @@ export default function TrainMapInner({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const loadedRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
+  const [geolocationError, setGeolocationError] = useState<string | null>(
+    null,
+  );
   const trainMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
   const trainMotionRef = useRef<Map<string, TrainMotionState>>(new Map());
   const trainStyleArgsRef = useRef<WeakMap<HTMLElement, TrainStyleArgs>>(
@@ -161,10 +164,28 @@ export default function TrainMapInner({
       bounds: DEFAULT_MAP_BOUNDS,
       fitBoundsOptions: { padding: 40, maxZoom: 10.5 },
       attributionControl: false,
+      locale: {
+        "GeolocateControl.FindMyLocation": "現在地を表示",
+        "GeolocateControl.LocationNotAvailable":
+          "現在地を取得できません",
+      },
     });
     mapRef.current = map;
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    const geolocateControl = new maplibregl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: false },
+      showAccuracyCircle: true,
+      showUserLocation: true,
+      trackUserLocation: false,
+    });
+    geolocateControl.on("geolocate", () => setGeolocationError(null));
+    geolocateControl.on("error", () => {
+      setGeolocationError(
+        "現在地を取得できません。ブラウザの位置情報設定をご確認ください。",
+      );
+    });
+    map.addControl(geolocateControl, "top-right");
     map.addControl(
       new maplibregl.AttributionControl({ compact: true }),
       "bottom-right",
@@ -515,13 +536,40 @@ export default function TrainMapInner({
     }
   }, [trains, selectedId, now]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !selectedId) return;
+    const marker = trainMarkersRef.current.get(selectedId);
+    if (!marker) return;
+
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    map.stop();
+    map.easeTo({
+      center: marker.getLngLat(),
+      zoom: Math.max(map.getZoom(), 13),
+      duration: reducedMotion ? 0 : 650,
+    });
+  }, [mapReady, selectedId]);
+
   return (
-    <div
-      ref={containerRef}
-      className="absolute inset-0 h-full w-full"
-      aria-label="関東エリアのJR列車位置地図"
-      role="application"
-    />
+    <>
+      <div
+        ref={containerRef}
+        className="absolute inset-0 h-full w-full"
+        aria-label="関東エリアのJR列車位置地図"
+        role="application"
+      />
+      {geolocationError && (
+        <p
+          role="status"
+          className="app-material pointer-events-none absolute right-3 top-24 z-20 max-w-[17rem] rounded-xl border border-amber-300/50 px-3 py-2 text-xs leading-5 text-amber-100 shadow-lg"
+        >
+          {geolocationError}
+        </p>
+      )}
+    </>
   );
 }
 

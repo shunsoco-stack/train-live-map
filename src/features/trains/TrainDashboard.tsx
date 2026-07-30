@@ -18,8 +18,10 @@ import {
 } from "@/features/railways/railwaySelection";
 import { useRailwayNetwork } from "@/features/railways/useRailwayNetwork";
 import { ServiceStatusBar } from "@/features/service-status/ServiceStatusBar";
+import { EstimatedMotionTip } from "@/features/trains/EstimatedMotionTip";
 import { TrainDetailPanel } from "@/features/trains/TrainDetailPanel";
 import { TrainFilterBar } from "@/features/trains/TrainFilterBar";
+import { TrainSearchSheet } from "@/features/trains/TrainSearchSheet";
 import { useTrainData } from "@/features/trains/useTrainData";
 import {
   safeGetBrowserStorage,
@@ -84,6 +86,10 @@ export function TrainDashboard() {
   const [filter, setFilter] = useState<TrainFilterKey>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [railwayFilterOpen, setRailwayFilterOpen] = useState(false);
+  const handleTrainSearchSelect = useCallback((trainId: string) => {
+    setFilter("all");
+    setSelectedId(trainId);
+  }, []);
 
   useEffect(() => {
     if (railwayLoading || railwaySelectionReady.current) return;
@@ -186,6 +192,11 @@ export function TrainDashboard() {
           onOpenChange={setRailwayFilterOpen}
         />
 
+        <TrainSearchSheet
+          trains={trainsOnVisibleLines}
+          onSelect={handleTrainSearchSelect}
+        />
+
         <CommunityReportSheet
           options={railwayOptions}
           visibleLineIds={visibleLineIds}
@@ -217,6 +228,8 @@ export function TrainDashboard() {
             viewState === "loading" || selectedTrain !== null
           }
         />
+
+        <EstimatedMotionTip ready={viewState === "ready"} />
 
         {/* 初回ロード表示 */}
         {viewState === "loading" && isOnline && (

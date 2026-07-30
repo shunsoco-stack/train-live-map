@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { DataSourceBadge } from "@/components/DataSourceBadge";
 import { DataUsageNotice } from "@/components/DataUsageNotice";
+import { LegendSheet } from "@/components/LegendSheet";
 import { UpdateStatus } from "@/components/UpdateStatus";
 import type { ProviderSource } from "@/types/train";
 
@@ -39,7 +40,10 @@ export function AppHeader({
       </div>
       <div className="mt-1 flex min-h-9 items-center justify-between gap-2">
         <UpdateStatus dataUpdatedAt={dataUpdatedAt} />
-        <DataUsageNotice source={source} />
+        <div className="flex items-center gap-1.5">
+          <LegendSheet />
+          <DataUsageNotice source={source} />
+        </div>
       </div>
     </header>
   );
