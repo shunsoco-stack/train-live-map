@@ -5,6 +5,11 @@ import {
   fetchCommunityReports,
   submitCommunityReport,
 } from "@/lib/apiClient";
+import {
+  safeGetBrowserStorage,
+  safeReadStorage,
+  safeWriteStorage,
+} from "@/lib/browserGuidance";
 import type {
   CommunityReportSummary,
   CommunityReportVote,
@@ -26,17 +31,14 @@ interface CommunityReportState {
 }
 
 function reporterId(): string {
-  try {
-    const stored = window.localStorage.getItem(REPORTER_STORAGE_KEY);
-    if (stored && /^[A-Za-z0-9_-]{12,100}$/.test(stored)) {
-      return stored;
-    }
-    const created = crypto.randomUUID().replaceAll("-", "");
-    window.localStorage.setItem(REPORTER_STORAGE_KEY, created);
-    return created;
-  } catch {
-    return crypto.randomUUID().replaceAll("-", "");
+  const storage = safeGetBrowserStorage("localStorage");
+  const stored = safeReadStorage(storage, REPORTER_STORAGE_KEY);
+  if (stored && /^[A-Za-z0-9_-]{12,100}$/.test(stored)) {
+    return stored;
   }
+  const created = crypto.randomUUID().replaceAll("-", "");
+  safeWriteStorage(storage, REPORTER_STORAGE_KEY, created);
+  return created;
 }
 
 export function useCommunityReports() {

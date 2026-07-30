@@ -21,6 +21,11 @@ import { ServiceStatusBar } from "@/features/service-status/ServiceStatusBar";
 import { TrainDetailPanel } from "@/features/trains/TrainDetailPanel";
 import { TrainFilterBar } from "@/features/trains/TrainFilterBar";
 import { useTrainData } from "@/features/trains/useTrainData";
+import {
+  safeGetBrowserStorage,
+  safeReadStorage,
+  safeWriteStorage,
+} from "@/lib/browserGuidance";
 import { useNow } from "@/lib/useNow";
 import { applyServerClockOffset } from "@/lib/time";
 import { serviceStatusesForVisibleLines } from "@/lib/serviceStatus";
@@ -69,16 +74,12 @@ export function TrainDashboard() {
 
   useEffect(() => {
     if (railwayLoading || railwaySelectionReady.current) return;
-    let storedValue: string | null = null;
-    let savedDefaultVersion: string | null = null;
-    try {
-      storedValue = window.localStorage.getItem(VISIBLE_LINES_STORAGE_KEY);
-      savedDefaultVersion = window.localStorage.getItem(
-        SELECTION_DEFAULT_VERSION_KEY,
-      );
-    } catch {
-      // localStorageを利用できない場合も、実データの初期選択で開始する。
-    }
+    const storage = safeGetBrowserStorage("localStorage");
+    const storedValue = safeReadStorage(storage, VISIBLE_LINES_STORAGE_KEY);
+    const savedDefaultVersion = safeReadStorage(
+      storage,
+      SELECTION_DEFAULT_VERSION_KEY,
+    );
 
     const decision = resolveRailwaySelection(
       storedValue,
@@ -90,35 +91,30 @@ export function TrainDashboard() {
 
     setVisibleLineIds(decision.visibleIds);
     railwaySelectionReady.current = true;
-    try {
-      if (decision.shouldPersistSelection) {
-        window.localStorage.setItem(
-          VISIBLE_LINES_STORAGE_KEY,
-          JSON.stringify([...decision.visibleIds]),
-        );
-      }
-      if (decision.shouldPersistVersion) {
-        window.localStorage.setItem(
-          SELECTION_DEFAULT_VERSION_KEY,
-          SELECTION_DEFAULT_VERSION,
-        );
-      }
-    } catch {
-      // 選択状態は画面内では維持し、保存不能でも操作を継続する。
+    if (decision.shouldPersistSelection) {
+      safeWriteStorage(
+        storage,
+        VISIBLE_LINES_STORAGE_KEY,
+        JSON.stringify([...decision.visibleIds]),
+      );
+    }
+    if (decision.shouldPersistVersion) {
+      safeWriteStorage(
+        storage,
+        SELECTION_DEFAULT_VERSION_KEY,
+        SELECTION_DEFAULT_VERSION,
+      );
     }
   }, [railwayLoading, railwayOptions, railwaySource]);
 
   const handleVisibleLineIdsChange = useCallback((next: Set<string>) => {
     setVisibleLineIds(next);
     if (!railwaySelectionReady.current) return;
-    try {
-      window.localStorage.setItem(
-        VISIBLE_LINES_STORAGE_KEY,
-        JSON.stringify([...next]),
-      );
-    } catch {
-      // 保存不能でも、現在の画面上の選択は維持する。
-    }
+    safeWriteStorage(
+      safeGetBrowserStorage("localStorage"),
+      VISIBLE_LINES_STORAGE_KEY,
+      JSON.stringify([...next]),
+    );
   }, []);
 
   const trainsOnVisibleLines = useMemo(

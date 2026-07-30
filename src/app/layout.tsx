@@ -4,6 +4,7 @@ import Script from "next/script";
 import "@fontsource/m-plus-rounded-1c/400.css";
 import "@fontsource/m-plus-rounded-1c/700.css";
 import "@fontsource/m-plus-rounded-1c/800.css";
+import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { adsenseClientId } from "@/lib/adsense";
 import "./globals.css";
 
@@ -83,7 +84,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body className="font-sans antialiased">
-        {children}
+        <AppErrorBoundary>{children}</AppErrorBoundary>
         {adsenseClientId && (
           <Script
             id="google-adsense"

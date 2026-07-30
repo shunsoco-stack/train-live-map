@@ -12,6 +12,12 @@ export interface StorageLike {
   setItem(key: string, value: string): void;
 }
 
+export type BrowserStorageKey = "localStorage" | "sessionStorage";
+
+export type BrowserStorageHost = {
+  readonly [key in BrowserStorageKey]: StorageLike;
+};
+
 export interface BrowserGuidanceSignals {
   userAgent: string;
   maxTouchPoints?: number;
@@ -116,6 +122,18 @@ export function safeReadStorage(
 ): string | null {
   try {
     return storage?.getItem(key) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function safeGetBrowserStorage(
+  key: BrowserStorageKey,
+  host: BrowserStorageHost | null | undefined =
+    typeof window === "undefined" ? null : window,
+): StorageLike | null {
+  try {
+    return host?.[key] ?? null;
   } catch {
     return null;
   }

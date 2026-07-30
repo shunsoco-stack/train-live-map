@@ -9,6 +9,7 @@ import {
 import {
   isIOSDevice,
   isStandaloneMode,
+  safeGetBrowserStorage,
   safeReadStorage,
   safeWriteStorage,
 } from "@/lib/browserGuidance";
@@ -40,7 +41,7 @@ interface NavigatorWithStandalone extends Navigator {
 
 function readStoredLineIds(): string[] {
   const stored = safeReadStorage(
-    typeof window === "undefined" ? null : window.localStorage,
+    safeGetBrowserStorage("localStorage"),
     PUSH_LINES_STORAGE_KEY,
   );
   if (!stored) return [];
@@ -63,7 +64,7 @@ function readStoredLineIds(): string[] {
 
 function storeLineIds(lineIds: readonly string[]): void {
   safeWriteStorage(
-    window.localStorage,
+    safeGetBrowserStorage("localStorage"),
     PUSH_LINES_STORAGE_KEY,
     JSON.stringify(lineIds),
   );
