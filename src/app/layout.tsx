@@ -1,11 +1,24 @@
 import type { Metadata, Viewport } from "next";
+import localFont from "next/font/local";
 import Script from "next/script";
-import "@fontsource/m-plus-rounded-1c/400.css";
-import "@fontsource/m-plus-rounded-1c/700.css";
-import "@fontsource/m-plus-rounded-1c/800.css";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { adsenseClientId } from "@/lib/adsense";
 import "./globals.css";
+
+const roundedBrandFont = localFont({
+  src: "./fonts/m-plus-rounded-brand-routes-700.woff2",
+  display: "swap",
+  fallback: [
+    "Hiragino Maru Gothic ProN",
+    "Hiragino Kaku Gothic ProN",
+    "Yu Gothic UI",
+    "Noto Sans JP",
+    "sans-serif",
+  ],
+  style: "normal",
+  variable: "--font-rounded-web",
+  weight: "700",
+});
 
 const title = "Train Live Map｜JR東日本・関東版";
 const description =
@@ -77,11 +90,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ja">
+    <html lang="ja" className={roundedBrandFont.variable}>
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
-      <body className="font-sans antialiased">
+      <body className="antialiased">
         <AppErrorBoundary>{children}</AppErrorBoundary>
         {adsenseClientId && (
           <Script

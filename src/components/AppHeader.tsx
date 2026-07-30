@@ -29,7 +29,7 @@ export function AppHeader({
             aria-hidden
           />
           <div className="leading-tight">
-            <h1 className="text-[0.95rem] font-bold tracking-[-0.015em] text-rail-text">
+            <h1 className="font-rounded text-[0.95rem] font-bold tracking-[-0.015em] text-rail-text">
               Train Live Map
             </h1>
             <p className="text-[0.6875rem] font-medium tracking-[0.015em] text-rail-muted">

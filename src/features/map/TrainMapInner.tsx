@@ -73,7 +73,12 @@ function createRouteLabelImage(
   const fontSize = 12 * ROUTE_LABEL_PIXEL_RATIO;
   const horizontalPadding = 9 * ROUTE_LABEL_PIXEL_RATIO;
   const height = 24 * ROUTE_LABEL_PIXEL_RATIO;
-  context.font = `800 ${fontSize}px "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", sans-serif`;
+  const roundedFontFamily =
+    getComputedStyle(document.documentElement)
+      .getPropertyValue("--font-rounded-web")
+      .trim() || '"Hiragino Maru Gothic ProN"';
+  const canvasFont = `700 ${fontSize}px ${roundedFontFamily}, "Hiragino Maru Gothic ProN", sans-serif`;
+  context.font = canvasFont;
   const width = Math.ceil(
     Math.max(
       54 * ROUTE_LABEL_PIXEL_RATIO,
@@ -84,7 +89,7 @@ function createRouteLabelImage(
   canvas.width = width;
   canvas.height = height;
 
-  context.font = `800 ${fontSize}px "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", sans-serif`;
+  context.font = canvasFont;
   context.textAlign = "center";
   context.textBaseline = "middle";
   context.lineJoin = "round";
@@ -183,6 +188,7 @@ export default function TrainMapInner({
 
     const activeSourceIds = new Set<string>();
     for (const line of railwayLines) {
+      const visible = visibleLineIds.has(line.id);
       const sourceId = `railway-route-${line.id}`;
       const casingId = `${sourceId}-casing`;
       const lineId = `${sourceId}-line`;
@@ -208,7 +214,7 @@ export default function TrainMapInner({
         map.addSource(sourceId, { type: "geojson", data });
       }
 
-      if (!map.hasImage(labelImageId)) {
+      if (visible && !map.hasImage(labelImageId)) {
         const labelImage = createRouteLabelImage(
           routeLabelText(line.name),
           line.color,
@@ -277,7 +283,7 @@ export default function TrainMapInner({
         });
       }
 
-      const visibility = visibleLineIds.has(line.id) ? "visible" : "none";
+      const visibility = visible ? "visible" : "none";
       if (map.getLayer(casingId)) {
         map.setLayoutProperty(casingId, "visibility", visibility);
       }
