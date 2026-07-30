@@ -33,8 +33,7 @@ import { serviceStatusesForVisibleLines } from "@/lib/serviceStatus";
 import { resolveTrainDashboardViewState } from "@/lib/trainDashboardViewState";
 import { restoreTrainLocations } from "@/lib/trainPayload";
 import {
-  matchesFilter,
-  TRAIN_FILTERS,
+  summarizeTrainFilters,
   type TrainFilterKey,
 } from "@/lib/trainStatus";
 
@@ -76,7 +75,7 @@ export function TrainDashboard() {
       ),
     [trainPayloads, railwayLines, railwayOptions],
   );
-  const clientNow = useNow(1000);
+  const clientNow = useNow(10_000);
   const now = useMemo(
     () => applyServerClockOffset(clientNow, serverClockOffsetMs),
     [clientNow, serverClockOffsetMs],
@@ -136,18 +135,8 @@ export function TrainDashboard() {
     [trains, visibleLineIds],
   );
 
-  const counts = useMemo(() => {
-    const result = {} as Record<TrainFilterKey, number>;
-    for (const f of TRAIN_FILTERS) {
-      result[f.key] = trainsOnVisibleLines.filter((t) =>
-        matchesFilter(t, f.key, now),
-      ).length;
-    }
-    return result;
-  }, [trainsOnVisibleLines, now]);
-
-  const filteredTrains = useMemo(
-    () => trainsOnVisibleLines.filter((t) => matchesFilter(t, filter, now)),
+  const { counts, filtered: filteredTrains } = useMemo(
+    () => summarizeTrainFilters(trainsOnVisibleLines, filter, now),
     [trainsOnVisibleLines, filter, now],
   );
 
@@ -175,11 +164,7 @@ export function TrainDashboard() {
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-rail-bg">
-      <AppHeader
-        lastUpdatedAt={lastUpdatedAt}
-        dataUpdatedAt={dataUpdatedAt}
-        source={source}
-      />
+      <AppHeader dataUpdatedAt={dataUpdatedAt} source={source} />
 
       <main className="relative flex-1">
         {/* 地図(画面の中心) */}

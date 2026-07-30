@@ -136,6 +136,10 @@ export default function TrainMapInner({
   const [mapReady, setMapReady] = useState(false);
   const trainMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
   const trainMotionRef = useRef<Map<string, TrainMotionState>>(new Map());
+  const trainStyleArgsRef = useRef<WeakMap<HTMLElement, TrainStyleArgs>>(
+    new WeakMap(),
+  );
+  const routeSourceIdsRef = useRef<Set<string>>(new Set());
   // 最新の onSelect を参照するための ref(マーカー生成時のクロージャ固定を回避)
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
@@ -178,6 +182,8 @@ export default function TrainMapInner({
       setMapReady(false);
       trainMarkers.clear();
       trainMotions.clear();
+      trainStyleArgsRef.current = new WeakMap();
+      routeSourceIdsRef.current.clear();
     };
   }, []);
 
@@ -296,14 +302,8 @@ export default function TrainMapInner({
       }
     }
 
-    const style = map.getStyle();
-    for (const sourceId of Object.keys(style.sources ?? {})) {
-      if (
-        !sourceId.startsWith("railway-route-") ||
-        activeSourceIds.has(sourceId)
-      ) {
-        continue;
-      }
+    for (const sourceId of routeSourceIdsRef.current) {
+      if (activeSourceIds.has(sourceId)) continue;
       const casingId = `${sourceId}-casing`;
       const lineId = `${sourceId}-line`;
       const labelId = `${sourceId}-label`;
@@ -314,6 +314,7 @@ export default function TrainMapInner({
       if (map.getSource(sourceId)) map.removeSource(sourceId);
       if (map.hasImage(labelImageId)) map.removeImage(labelImageId);
     }
+    routeSourceIdsRef.current = activeSourceIds;
   }, [mapReady, railwayLines, visibleLineIds]);
 
   // --- 選択路線が画面の主役になるよう、表示範囲を自動調整 ---
@@ -465,7 +466,7 @@ export default function TrainMapInner({
         marker.setLngLat([train.longitude, train.latitude]);
       }
 
-      styleTrainElement(marker.getElement(), {
+      const styleArgs: TrainStyleArgs = {
         color: appearance.color,
         ring: appearance.ring,
         symbol: appearance.symbol,
@@ -491,12 +492,22 @@ export default function TrainMapInner({
             ? 0
             : Math.max(0, Math.round(train.delayMinutes)),
         selected: isSelected,
-      });
+      };
+      const markerElement = marker.getElement();
+      const previousStyleArgs = trainStyleArgsRef.current.get(markerElement);
+      if (
+        !previousStyleArgs ||
+        !sameTrainStyleArgs(previousStyleArgs, styleArgs)
+      ) {
+        styleTrainElement(markerElement, styleArgs);
+        trainStyleArgsRef.current.set(markerElement, styleArgs);
+      }
     }
 
     // 消えた列車のマーカーを削除
     for (const [id, marker] of markers) {
       if (!seen.has(id)) {
+        trainStyleArgsRef.current.delete(marker.getElement());
         marker.remove();
         markers.delete(id);
         trainMotionRef.current.delete(id);
@@ -596,6 +607,24 @@ interface TrainStyleArgs {
   face: "normal" | "delayed" | "suspended";
   delayMinutes: number;
   selected: boolean;
+}
+
+function sameTrainStyleArgs(
+  previous: TrainStyleArgs,
+  next: TrainStyleArgs,
+): boolean {
+  return (
+    previous.color === next.color &&
+    previous.ring === next.ring &&
+    previous.symbol === next.symbol &&
+    previous.label === next.label &&
+    previous.lineColor === next.lineColor &&
+    previous.directionKind === next.directionKind &&
+    previous.directionLabel === next.directionLabel &&
+    previous.face === next.face &&
+    previous.delayMinutes === next.delayMinutes &&
+    previous.selected === next.selected
+  );
 }
 
 function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {

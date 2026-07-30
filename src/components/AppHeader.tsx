@@ -5,14 +5,12 @@ import { UpdateStatus } from "@/components/UpdateStatus";
 import type { ProviderSource } from "@/types/train";
 
 interface AppHeaderProps {
-  lastUpdatedAt: Date | null;
   dataUpdatedAt: Date | null;
   source: ProviderSource | null;
 }
 
 /** アプリ上部のヘッダー(アプリ名・サブタイトル・データ元・更新状況)。 */
 export function AppHeader({
-  lastUpdatedAt,
   dataUpdatedAt,
   source,
 }: AppHeaderProps) {
@@ -40,10 +38,7 @@ export function AppHeader({
         <DataSourceBadge source={source} />
       </div>
       <div className="mt-1 flex min-h-9 items-center justify-between gap-2">
-        <UpdateStatus
-          lastUpdatedAt={lastUpdatedAt}
-          dataUpdatedAt={dataUpdatedAt}
-        />
+        <UpdateStatus dataUpdatedAt={dataUpdatedAt} />
         <DataUsageNotice source={source} />
       </div>
     </header>

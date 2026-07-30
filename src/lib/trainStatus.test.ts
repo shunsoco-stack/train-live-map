@@ -7,6 +7,7 @@ import {
   resolveStatusLevel,
   speedLabelJa,
   STALE_THRESHOLD_SECONDS,
+  summarizeTrainFilters,
   TRAIN_FILTERS,
   type TrainFilterKey,
 } from "./trainStatus.ts";
@@ -130,6 +131,41 @@ test("3分類の件数合計がすべての件数と一致する", () => {
     );
     assert.equal(detailMatches.length, 1);
   }
+});
+
+test("一度の集計で4フィルタの件数と選択中フィルタの列車を返す", () => {
+  const now = new Date("2026-07-31T12:00:00+09:00");
+  const trains = [
+    trainAt("2026-07-31T11:59:00+09:00", { id: "on-time" }),
+    trainAt("2026-07-31T11:59:00+09:00", {
+      id: "delayed",
+      delayMinutes: 3,
+      status: "delayed",
+    }),
+    trainAt("2026-07-31T11:50:00+09:00", {
+      id: "stale",
+      delayMinutes: 3,
+      status: "delayed",
+    }),
+  ];
+
+  const delayed = summarizeTrainFilters(trains, "delayed", now);
+  assert.deepEqual(delayed.counts, {
+    all: 3,
+    "on-time": 1,
+    delayed: 1,
+    stale: 1,
+  });
+  assert.deepEqual(
+    delayed.filtered.map((train) => train.id),
+    ["delayed"],
+  );
+
+  const all = summarizeTrainFilters(trains, "all", now);
+  assert.deepEqual(
+    all.filtered.map((train) => train.id),
+    ["on-time", "delayed", "stale"],
+  );
 });
 
 test("推定速度を明示し、速度0は停車中と表示する", () => {
