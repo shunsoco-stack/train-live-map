@@ -5,9 +5,17 @@
 
 import type { LngLat } from "@/types/geo";
 
-/** 列車の走行方向 */
-export type TrainDirection = "inbound" | "outbound";
-// inbound = 上り(東京方面) / outbound = 下り(横浜・熱海方面)
+/** 進行方向の系統。表示ラベルの決定と色分けに使う。 */
+export type TrainDirectionKind =
+  | "up"
+  | "down"
+  | "inner-loop"
+  | "outer-loop"
+  | "north"
+  | "south"
+  | "east"
+  | "west"
+  | "unknown";
 
 /** 列車の状態 */
 export type TrainStatus =
@@ -46,7 +54,9 @@ export interface TrainLocation {
   lineName: string;
   lineColor: string;
   trainNumber: string;
-  direction: TrainDirection;
+  directionKind: TrainDirectionKind;
+  /** 表示用ラベル。判定できない場合は null（UI は方向表示を出さない）。 */
+  directionLabel: string | null;
   destination: string;
   trainType: TrainType;
   latitude: number;

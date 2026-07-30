@@ -1,33 +1,34 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { AdSenseBanner } from "@/components/AdSenseBanner";
 import { AppHeader } from "@/components/AppHeader";
 import { BrowserGuidance } from "@/components/BrowserGuidance";
 import { DataSourceNotice } from "@/components/DataSourceNotice";
 import { ErrorNotice } from "@/components/ErrorNotice";
-import { defaultVisibleRailwayIds } from "@/data/railwayCatalog";
 import { CommunityReportSheet } from "@/features/community/CommunityReportSheet";
 import { MapPanel } from "@/features/map/MapPanel";
 import { RailwayFilterSheet } from "@/features/railways/RailwayFilterSheet";
+import {
+  resolveRailwaySelection,
+  SELECTION_DEFAULT_VERSION_KEY,
+  SELECTION_DEFAULT_VERSION,
+  VISIBLE_LINES_STORAGE_KEY,
+} from "@/features/railways/railwaySelection";
 import { useRailwayNetwork } from "@/features/railways/useRailwayNetwork";
 import { ServiceStatusBar } from "@/features/service-status/ServiceStatusBar";
 import { TrainDetailPanel } from "@/features/trains/TrainDetailPanel";
 import { TrainFilterBar } from "@/features/trains/TrainFilterBar";
 import { useTrainData } from "@/features/trains/useTrainData";
 import { useNow } from "@/lib/useNow";
+import { applyServerClockOffset } from "@/lib/time";
 import { serviceStatusesForVisibleLines } from "@/lib/serviceStatus";
 import {
   matchesFilter,
   TRAIN_FILTERS,
   type TrainFilterKey,
 } from "@/lib/trainStatus";
-
-const VISIBLE_LINES_STORAGE_KEY = "train-live-map:visible-lines";
-const SELECTION_DEFAULT_VERSION_KEY =
-  "train-live-map:visible-lines-default-version";
-const SELECTION_DEFAULT_VERSION = "2";
 
 /**
  * アプリ全体を束ねるクライアントコンポーネント。
@@ -44,14 +45,20 @@ export function TrainDashboard() {
     error,
     lastUpdatedAt,
     dataUpdatedAt,
+    serverClockOffsetMs,
     refresh,
   } = useTrainData();
   const {
     lines: railwayLines,
     options: railwayOptions,
     loading: railwayLoading,
+    source: railwaySource,
   } = useRailwayNetwork();
-  const now = useNow(1000);
+  const clientNow = useNow(1000);
+  const now = useMemo(
+    () => applyServerClockOffset(clientNow, serverClockOffsetMs),
+    [clientNow, serverClockOffsetMs],
+  );
 
   const [filter, setFilter] = useState<TrainFilterKey>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -62,59 +69,57 @@ export function TrainDashboard() {
 
   useEffect(() => {
     if (railwayLoading || railwaySelectionReady.current) return;
-    const availableIds = new Set(
-      railwayOptions
-        .filter((option) => option.available)
-        .map((option) => option.id),
-    );
-    const defaultIds = defaultVisibleRailwayIds(railwayOptions);
-
-    // 500本以上を一度に描画するとスマホでは重いため、初回は各方面の先頭だけ。
-    // 「すべて表示」から全路線へ即座に切り替えられる。
-    let next = defaultIds;
+    let storedValue: string | null = null;
+    let savedDefaultVersion: string | null = null;
     try {
-      const stored = window.localStorage.getItem(VISIBLE_LINES_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as unknown;
-        if (Array.isArray(parsed)) {
-          const restored = new Set(
-            parsed.filter(
-              (id): id is string =>
-              typeof id === "string" && availableIds.has(id),
-            ),
-          );
-          const savedDefaultVersion = window.localStorage.getItem(
-            SELECTION_DEFAULT_VERSION_KEY,
-          );
-          const isLegacyAllSelection =
-            savedDefaultVersion !== SELECTION_DEFAULT_VERSION &&
-            availableIds.size > defaultIds.size &&
-            restored.size === availableIds.size;
-
-          // 旧版の初期値「全路線」だけを軽量な新初期値へ移行する。
-          // 空選択や個別に選んだ組み合わせはそのまま尊重する。
-          next = isLegacyAllSelection ? defaultIds : restored;
-        }
-      }
-      window.localStorage.setItem(
+      storedValue = window.localStorage.getItem(VISIBLE_LINES_STORAGE_KEY);
+      savedDefaultVersion = window.localStorage.getItem(
         SELECTION_DEFAULT_VERSION_KEY,
-        SELECTION_DEFAULT_VERSION,
       );
     } catch {
-      // 保存値が壊れている場合は、各方面の先頭路線で開始する。
+      // localStorageを利用できない場合も、実データの初期選択で開始する。
     }
 
-    setVisibleLineIds(next);
-    railwaySelectionReady.current = true;
-  }, [railwayLoading, railwayOptions]);
-
-  useEffect(() => {
-    if (!railwaySelectionReady.current) return;
-    window.localStorage.setItem(
-      VISIBLE_LINES_STORAGE_KEY,
-      JSON.stringify([...visibleLineIds]),
+    const decision = resolveRailwaySelection(
+      storedValue,
+      railwayOptions,
+      railwaySource,
+      savedDefaultVersion,
     );
-  }, [visibleLineIds]);
+    if (!decision.shouldFinalize || decision.visibleIds === null) return;
+
+    setVisibleLineIds(decision.visibleIds);
+    railwaySelectionReady.current = true;
+    try {
+      if (decision.shouldPersistSelection) {
+        window.localStorage.setItem(
+          VISIBLE_LINES_STORAGE_KEY,
+          JSON.stringify([...decision.visibleIds]),
+        );
+      }
+      if (decision.shouldPersistVersion) {
+        window.localStorage.setItem(
+          SELECTION_DEFAULT_VERSION_KEY,
+          SELECTION_DEFAULT_VERSION,
+        );
+      }
+    } catch {
+      // 選択状態は画面内では維持し、保存不能でも操作を継続する。
+    }
+  }, [railwayLoading, railwayOptions, railwaySource]);
+
+  const handleVisibleLineIdsChange = useCallback((next: Set<string>) => {
+    setVisibleLineIds(next);
+    if (!railwaySelectionReady.current) return;
+    try {
+      window.localStorage.setItem(
+        VISIBLE_LINES_STORAGE_KEY,
+        JSON.stringify([...next]),
+      );
+    } catch {
+      // 保存不能でも、現在の画面上の選択は維持する。
+    }
+  }, []);
 
   const trainsOnVisibleLines = useMemo(
     () => trains.filter((train) => visibleLineIds.has(train.lineId)),
@@ -172,7 +177,7 @@ export function TrainDashboard() {
         <RailwayFilterSheet
           options={railwayOptions}
           visibleIds={visibleLineIds}
-          onChange={setVisibleLineIds}
+          onChange={handleVisibleLineIdsChange}
           loading={railwayLoading}
         />
 
@@ -213,12 +218,40 @@ export function TrainDashboard() {
             </div>
           </div>
         )}
+
+        {!loading && !error && trains.length === 0 && (
+          <div className="pointer-events-none absolute inset-0 z-[9] flex items-center justify-center p-6">
+            <section
+              className="app-material pointer-events-auto max-w-sm rounded-2xl border border-rail-border p-5 text-center shadow-xl"
+              aria-live="polite"
+            >
+              <h2 className="text-base font-bold text-rail-text">
+                現在表示できる列車情報がありません
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-rail-muted">
+                終電後、または一時的に運行中の列車情報がない可能性があります。
+              </p>
+              <button
+                type="button"
+                onClick={refresh}
+                className="pressable mx-auto mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-orange-500 px-4 py-2 text-sm font-bold text-white hover:bg-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
+              >
+                <RefreshCw className="h-4 w-4" aria-hidden />
+                再読み込み
+              </button>
+            </section>
+          </div>
+        )}
       </main>
 
       <AdSenseBanner />
 
       {/* 詳細ボトムシート */}
-      <TrainDetailPanel train={selectedTrain} onClose={() => setSelectedId(null)} />
+      <TrainDetailPanel
+        train={selectedTrain}
+        now={now}
+        onClose={() => setSelectedId(null)}
+      />
     </div>
   );
 }

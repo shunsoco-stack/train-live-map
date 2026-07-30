@@ -7,7 +7,7 @@ import type { ProviderSource } from "@/types/train";
 interface AppHeaderProps {
   lastUpdatedAt: Date | null;
   dataUpdatedAt: Date | null;
-  source: ProviderSource;
+  source: ProviderSource | null;
 }
 
 /** アプリ上部のヘッダー(アプリ名・サブタイトル・データ元・更新状況)。 */

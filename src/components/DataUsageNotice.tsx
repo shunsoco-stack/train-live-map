@@ -8,7 +8,7 @@ import type { ProviderSource } from "@/types/train";
 const CONTACT_EMAIL = "train-live-map-support@gmail.com";
 
 interface DataUsageNoticeProps {
-  source: ProviderSource;
+  source: ProviderSource | null;
 }
 
 /**

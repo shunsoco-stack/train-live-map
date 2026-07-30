@@ -1,10 +1,11 @@
 "use client";
 
 import { elapsedSeconds, formatDurationJa } from "@/lib/time";
-import { useNow } from "@/lib/useNow";
 
 interface StoppedDurationProps {
   stoppedSince: string | null;
+  /** API生成時刻を基準に補正済みの現在時刻。 */
+  now: Date;
   /** 先頭に付けるラベル(既定: "停止中") */
   prefix?: string;
   className?: string;
@@ -16,10 +17,10 @@ interface StoppedDurationProps {
  */
 export function StoppedDuration({
   stoppedSince,
+  now,
   prefix = "停止中",
   className,
 }: StoppedDurationProps) {
-  const now = useNow(1000);
   if (!stoppedSince) return null;
   const seconds = elapsedSeconds(stoppedSince, now) ?? 0;
   return (

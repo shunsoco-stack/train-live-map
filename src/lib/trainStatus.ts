@@ -1,5 +1,5 @@
 import type { DataAccuracy, TrainLocation, TrainStatus, TrainType } from "@/types/train";
-import { elapsedSeconds } from "@/lib/time";
+import { elapsedSeconds } from "./time.ts";
 
 /**
  * 列車の見た目(色・ラベル・重要度)を決めるためのロジック。
@@ -29,6 +29,12 @@ const APPEARANCE: Record<StatusLevel, Omit<StatusAppearance, "level">> = {
 };
 
 /**
+ * ODPT実測では更新直後でも60〜80秒、末尾は5〜10分程度のばらつきがある。
+ * 90秒で全列車が周期的に不明になる誤判定を避けるため、まず300秒とする。
+ */
+export const STALE_THRESHOLD_SECONDS = 300;
+
+/**
  * 列車の状態と停止経過時間から表示レベルを決める。
  * - running / delayed: 緑(走行中)
  * - stopped 1分以上: 黄 / 5分以上: 赤
@@ -39,9 +45,14 @@ export function resolveStatusLevel(train: TrainLocation, now: Date = new Date())
   if (train.status === "suspended") return "suspended";
   if (train.status === "unknown") return "unknown";
 
-  // データが古い(90秒以上更新なし)場合は不明扱い
+  // 呼び出し側から、API生成時刻を基準に補正した now が渡される前提。
   const sinceUpdate = elapsedSeconds(train.lastUpdatedAt, now);
-  if (sinceUpdate !== null && sinceUpdate > 90) return "unknown";
+  if (
+    sinceUpdate !== null &&
+    sinceUpdate > STALE_THRESHOLD_SECONDS
+  ) {
+    return "unknown";
+  }
 
   if (train.status === "stopped") {
     const stoppedFor = elapsedSeconds(train.stoppedSince, now) ?? 0;
@@ -68,28 +79,21 @@ export function matchesFilter(
 ): boolean {
   if (filter === "all") return true;
   const level = resolveStatusLevel(train, now);
-  switch (filter) {
-    case "running":
-      return level === "running";
-    case "stopped":
-      return level === "warn" || level === "danger";
-    case "delayed":
-      return train.delayMinutes > 0 && train.status !== "suspended";
-    case "suspended":
-      return level === "suspended";
-    default:
-      return true;
-  }
+  const isStale = level === "unknown";
+  if (filter === "stale") return isStale;
+  if (isStale) return false;
+
+  const hasDelay = train.delayMinutes >= 1;
+  return filter === "delayed" ? hasDelay : !hasDelay;
 }
 
-export type TrainFilterKey = "all" | "running" | "stopped" | "delayed" | "suspended";
+export type TrainFilterKey = "all" | "on-time" | "delayed" | "stale";
 
 export const TRAIN_FILTERS: { key: TrainFilterKey; label: string }[] = [
   { key: "all", label: "すべて" },
-  { key: "running", label: "走行中" },
-  { key: "stopped", label: "停止中" },
-  { key: "delayed", label: "遅延" },
-  { key: "suspended", label: "運転見合わせ" },
+  { key: "on-time", label: "遅延なし" },
+  { key: "delayed", label: "遅延あり" },
+  { key: "stale", label: "情報が古い" },
 ];
 
 /** 状態の日本語表記(詳細パネル用)。 */
@@ -133,4 +137,15 @@ export function dataAccuracyLabelJa(accuracy: DataAccuracy): string {
     default:
       return "モック";
   }
+}
+
+/** 速度を、実測値と推定値を混同しない日本語表記へ変換する。 */
+export function speedLabelJa(
+  speedKmh: number,
+  dataAccuracy: DataAccuracy,
+): string {
+  if (speedKmh === 0) return "停車中";
+  return dataAccuracy === "actual"
+    ? `${speedKmh} km/h`
+    : `約${speedKmh} km/h（推定）`;
 }

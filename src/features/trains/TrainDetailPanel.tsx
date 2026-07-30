@@ -2,11 +2,15 @@
 
 import { useEffect, useRef } from "react";
 import {
-  ArrowDownRight,
-  ArrowUpRight,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
   Clock,
   Gauge,
   MapPin,
+  RotateCcw,
+  RotateCw,
   Ticket,
   TrainFront,
   X,
@@ -15,15 +19,16 @@ import type { TrainLocation } from "@/types/train";
 import {
   dataAccuracyLabelJa,
   getStatusAppearance,
+  speedLabelJa,
   statusLabelJa,
   trainTypeLabelJa,
 } from "@/lib/trainStatus";
 import { formatTimeJa } from "@/lib/time";
 import { StoppedDuration } from "@/features/trains/StoppedDuration";
-import { useNow } from "@/lib/useNow";
 
 interface TrainDetailPanelProps {
   train: TrainLocation | null;
+  now: Date;
   onClose: () => void;
 }
 
@@ -31,8 +36,11 @@ interface TrainDetailPanelProps {
  * 列車の詳細を表示するパネル。
  * スマホでは画面下から開くボトムシート風に表示する。
  */
-export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
-  const now = useNow(1000);
+export function TrainDetailPanel({
+  train,
+  now,
+  onClose,
+}: TrainDetailPanelProps) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const trainId = train?.id ?? null;
 
@@ -57,8 +65,7 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
   if (!train) return null;
 
   const appearance = getStatusAppearance(train, now);
-  const directionLabel = train.direction === "inbound" ? "上り" : "下り";
-  const DirectionIcon = train.direction === "inbound" ? ArrowUpRight : ArrowDownRight;
+  const DirectionIcon = directionIcon(train.directionKind);
 
   return (
     <div
@@ -112,7 +119,9 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
               <p className="text-base font-bold text-rail-text">
                 {trainTypeLabelJa(train.trainType)}・{train.destination}行
               </p>
-              <p className="text-xs text-rail-muted">{directionLabel}</p>
+              {train.directionLabel && (
+                <p className="text-xs text-rail-muted">{train.directionLabel}</p>
+              )}
             </div>
           </div>
           <button
@@ -139,7 +148,7 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
           </span>
           {train.stoppedSince && (
             <span className="ml-2 text-sm font-medium text-amber-300">
-              <StoppedDuration stoppedSince={train.stoppedSince} />
+              <StoppedDuration stoppedSince={train.stoppedSince} now={now} />
             </span>
           )}
         </div>
@@ -155,22 +164,26 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
           <DetailItem icon={TrainFront} label="行先">
             {train.destination}
           </DetailItem>
-          <DetailItem icon={DirectionIcon} label="上り・下り">
-            {directionLabel}
-          </DetailItem>
+          {train.directionLabel && DirectionIcon && (
+            <DetailItem icon={DirectionIcon} label="進行方向">
+              {train.directionLabel}
+            </DetailItem>
+          )}
           <DetailItem icon={Clock} label="遅延時間">
             {train.delayMinutes > 0 ? `${train.delayMinutes}分` : "なし"}
           </DetailItem>
           <DetailItem icon={Gauge} label="速度">
-            {train.speedKmh} km/h
+            {speedLabelJa(train.speedKmh, train.dataAccuracy)}
           </DetailItem>
-          <DetailItem icon={Clock} label="停止時間">
-            {train.stoppedSince ? (
-              <StoppedDuration stoppedSince={train.stoppedSince} prefix="" />
-            ) : (
-              "—"
-            )}
-          </DetailItem>
+          {train.stoppedSince && (
+            <DetailItem icon={Clock} label="停止時間">
+              <StoppedDuration
+                stoppedSince={train.stoppedSince}
+                now={now}
+                prefix=""
+              />
+            </DetailItem>
+          )}
           <DetailItem icon={Clock} label="最終更新">
             {formatTimeJa(train.lastUpdatedAt)}
           </DetailItem>
@@ -196,12 +209,34 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
             id="train-detail-accuracy-note"
             className="border-t border-rail-border px-4 py-3 text-[11px] leading-relaxed text-rail-muted"
           >
-            ※ 位置情報はモックまたは駅間情報からの推定です。実際の列車位置とは異なる場合があります。
+            ※ 位置情報はモックまたは駅間情報からの推定です。速度も表示用の推定値です。実際の列車位置・速度とは異なる場合があります。
           </p>
         )}
       </div>
     </div>
   );
+}
+
+function directionIcon(directionKind: TrainLocation["directionKind"]) {
+  switch (directionKind) {
+    case "up":
+    case "north":
+      return ArrowUp;
+    case "down":
+    case "south":
+      return ArrowDown;
+    case "east":
+      return ArrowRight;
+    case "west":
+      return ArrowLeft;
+    case "inner-loop":
+      return RotateCw;
+    case "outer-loop":
+      return RotateCcw;
+    case "unknown":
+    default:
+      return null;
+  }
 }
 
 interface DetailItemProps {

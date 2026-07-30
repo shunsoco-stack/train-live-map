@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   defaultVisibleRailwayIds,
   findRailwayCatalogLine,
+  ODPT_RAILWAY_TO_CATALOG,
   railwayFilterOptions,
   RAILWAY_CATALOG,
 } from "./railwayCatalog.ts";
@@ -33,6 +34,34 @@ test("ODPT路線IDから主要路線を識別する", () => {
     )?.id,
     "joban-rapid",
   );
+});
+
+test("埼京線・川越線を完全一致のODPT路線IDで識別する", () => {
+  assert.equal(
+    findRailwayCatalogLine(
+      "odpt.Railway:JR-East.SaikyoKawagoe",
+      "埼京線・川越線",
+    )?.id,
+    "saikyo",
+  );
+  assert.equal(
+    findRailwayCatalogLine("odpt.Railway:JR-East.Kawagoe", "川越線")?.id,
+    "kawagoe",
+  );
+  assert.equal(
+    findRailwayCatalogLine(
+      "odpt.Railway:JR-East.FooKawagoeBar",
+      "川越線らしい未知路線",
+    ),
+    null,
+  );
+});
+
+test("明示ODPT路線ID表の参照先がすべてカタログに存在する", () => {
+  const catalogIds = new Set(RAILWAY_CATALOG.map((item) => item.id));
+  for (const catalogId of Object.values(ODPT_RAILWAY_TO_CATALOG)) {
+    assert.equal(catalogIds.has(catalogId), true, catalogId);
+  }
 });
 
 test("ODPT列車位置情報の対象外路線を選択肢から外す", () => {

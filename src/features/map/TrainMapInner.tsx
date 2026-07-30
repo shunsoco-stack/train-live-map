@@ -444,14 +444,21 @@ export default function TrainMapInner({
         marker.setLngLat([train.longitude, train.latitude]);
       }
 
-      const directionLabel = train.direction === "inbound" ? "上り" : "下り";
       styleTrainElement(marker.getElement(), {
         color: appearance.color,
         ring: appearance.ring,
         symbol: appearance.symbol,
-        label: `${train.lineName} ${directionLabel} ${train.destination}行 ${appearance.label}`,
+        label: [
+          train.lineName,
+          train.directionLabel,
+          `${train.destination}行`,
+          appearance.label,
+        ]
+          .filter(Boolean)
+          .join(" "),
         lineColor: train.lineColor,
-        direction: train.direction,
+        directionKind: train.directionKind,
+        directionLabel: train.directionLabel,
         face:
           train.status === "suspended"
             ? "suspended"
@@ -563,7 +570,8 @@ interface TrainStyleArgs {
   symbol: string;
   label: string;
   lineColor: string;
-  direction: TrainLocation["direction"];
+  directionKind: TrainLocation["directionKind"];
+  directionLabel: TrainLocation["directionLabel"];
   face: "normal" | "delayed" | "suspended";
   delayMinutes: number;
   selected: boolean;
@@ -604,10 +612,14 @@ function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
       args.delayMinutes > 0 ? `+${args.delayMinutes}分` : "";
   }
   if (direction) {
-    const isInbound = args.direction === "inbound";
-    direction.textContent = isInbound ? "↑ 上り" : "↓ 下り";
-    direction.style.backgroundColor = isInbound ? "#1e3a8a" : "#7c2d12";
-    direction.style.borderColor = isInbound ? "#93c5fd" : "#fdba74";
+    const directionStyle = directionBadgeStyle(args.directionKind);
+    direction.style.display =
+      args.directionLabel && directionStyle ? "inline-flex" : "none";
+    if (args.directionLabel && directionStyle) {
+      direction.textContent = `${directionStyle.symbol} ${args.directionLabel}`;
+      direction.style.backgroundColor = directionStyle.backgroundColor;
+      direction.style.borderColor = directionStyle.borderColor;
+    }
   }
   if (badge) {
     // 通常走行時は余分な三角記号を出さず、注意が必要な状態だけ表示する。
@@ -616,5 +628,37 @@ function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
     badge.style.backgroundColor = args.ring;
     badge.style.borderColor = args.color;
     badge.style.color = "#ffffff";
+  }
+}
+
+interface DirectionBadgeStyle {
+  symbol: string;
+  backgroundColor: string;
+  borderColor: string;
+}
+
+function directionBadgeStyle(
+  directionKind: TrainLocation["directionKind"],
+): DirectionBadgeStyle | null {
+  switch (directionKind) {
+    case "up":
+      return { symbol: "↑", backgroundColor: "#1e3a8a", borderColor: "#93c5fd" };
+    case "down":
+      return { symbol: "↓", backgroundColor: "#7c2d12", borderColor: "#fdba74" };
+    case "inner-loop":
+      return { symbol: "↻", backgroundColor: "#581c87", borderColor: "#d8b4fe" };
+    case "outer-loop":
+      return { symbol: "↺", backgroundColor: "#581c87", borderColor: "#d8b4fe" };
+    case "north":
+      return { symbol: "↑", backgroundColor: "#115e59", borderColor: "#5eead4" };
+    case "south":
+      return { symbol: "↓", backgroundColor: "#115e59", borderColor: "#5eead4" };
+    case "east":
+      return { symbol: "→", backgroundColor: "#115e59", borderColor: "#5eead4" };
+    case "west":
+      return { symbol: "←", backgroundColor: "#115e59", borderColor: "#5eead4" };
+    case "unknown":
+    default:
+      return null;
   }
 }
