@@ -52,17 +52,33 @@ function routeLabelText(name: string): string {
  * ラスタ地図スタイルはglyphsを持たないため、路線名をCanvasで画像化する。
  * MapLibreのsymbolレイヤーに載せることで、線路に沿った回転・重なり回避が効く。
  */
-function createRouteLabelImage(name: string, lineColor: string): ImageData {
+let routeLabelCanvasWarningShown = false;
+
+function createRouteLabelImage(
+  name: string,
+  lineColor: string,
+): ImageData | null {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
   if (!context) {
-    throw new Error("路線名ラベル用のCanvasを初期化できませんでした。");
+    if (!routeLabelCanvasWarningShown) {
+      routeLabelCanvasWarningShown = true;
+      console.warn(
+        "路線名ラベル用のCanvasを初期化できないため、ラベルなしで続行します。",
+      );
+    }
+    return null;
   }
 
   const fontSize = 12 * ROUTE_LABEL_PIXEL_RATIO;
   const horizontalPadding = 9 * ROUTE_LABEL_PIXEL_RATIO;
   const height = 24 * ROUTE_LABEL_PIXEL_RATIO;
-  context.font = `800 ${fontSize}px "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", sans-serif`;
+  const roundedFontFamily =
+    getComputedStyle(document.documentElement)
+      .getPropertyValue("--font-rounded-web")
+      .trim() || '"Hiragino Maru Gothic ProN"';
+  const canvasFont = `700 ${fontSize}px ${roundedFontFamily}, "Hiragino Maru Gothic ProN", sans-serif`;
+  context.font = canvasFont;
   const width = Math.ceil(
     Math.max(
       54 * ROUTE_LABEL_PIXEL_RATIO,
@@ -73,7 +89,7 @@ function createRouteLabelImage(name: string, lineColor: string): ImageData {
   canvas.width = width;
   canvas.height = height;
 
-  context.font = `800 ${fontSize}px "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", sans-serif`;
+  context.font = canvasFont;
   context.textAlign = "center";
   context.textBaseline = "middle";
   context.lineJoin = "round";
@@ -118,8 +134,15 @@ export default function TrainMapInner({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const loadedRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
+  const [geolocationError, setGeolocationError] = useState<string | null>(
+    null,
+  );
   const trainMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
   const trainMotionRef = useRef<Map<string, TrainMotionState>>(new Map());
+  const trainStyleArgsRef = useRef<WeakMap<HTMLElement, TrainStyleArgs>>(
+    new WeakMap(),
+  );
+  const routeSourceIdsRef = useRef<Set<string>>(new Set());
   // 最新の onSelect を参照するための ref(マーカー生成時のクロージャ固定を回避)
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
@@ -141,10 +164,28 @@ export default function TrainMapInner({
       bounds: DEFAULT_MAP_BOUNDS,
       fitBoundsOptions: { padding: 40, maxZoom: 10.5 },
       attributionControl: false,
+      locale: {
+        "GeolocateControl.FindMyLocation": "現在地を表示",
+        "GeolocateControl.LocationNotAvailable":
+          "現在地を取得できません",
+      },
     });
     mapRef.current = map;
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    const geolocateControl = new maplibregl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: false },
+      showAccuracyCircle: true,
+      showUserLocation: true,
+      trackUserLocation: false,
+    });
+    geolocateControl.on("geolocate", () => setGeolocationError(null));
+    geolocateControl.on("error", () => {
+      setGeolocationError(
+        "現在地を取得できません。ブラウザの位置情報設定をご確認ください。",
+      );
+    });
+    map.addControl(geolocateControl, "top-right");
     map.addControl(
       new maplibregl.AttributionControl({ compact: true }),
       "bottom-right",
@@ -162,6 +203,8 @@ export default function TrainMapInner({
       setMapReady(false);
       trainMarkers.clear();
       trainMotions.clear();
+      trainStyleArgsRef.current = new WeakMap();
+      routeSourceIdsRef.current.clear();
     };
   }, []);
 
@@ -172,6 +215,7 @@ export default function TrainMapInner({
 
     const activeSourceIds = new Set<string>();
     for (const line of railwayLines) {
+      const visible = visibleLineIds.has(line.id);
       const sourceId = `railway-route-${line.id}`;
       const casingId = `${sourceId}-casing`;
       const lineId = `${sourceId}-line`;
@@ -197,12 +241,16 @@ export default function TrainMapInner({
         map.addSource(sourceId, { type: "geojson", data });
       }
 
-      if (!map.hasImage(labelImageId)) {
-        map.addImage(
-          labelImageId,
-          createRouteLabelImage(routeLabelText(line.name), line.color),
-          { pixelRatio: ROUTE_LABEL_PIXEL_RATIO },
+      if (visible && !map.hasImage(labelImageId)) {
+        const labelImage = createRouteLabelImage(
+          routeLabelText(line.name),
+          line.color,
         );
+        if (labelImage) {
+          map.addImage(labelImageId, labelImage, {
+            pixelRatio: ROUTE_LABEL_PIXEL_RATIO,
+          });
+        }
       }
 
       if (!map.getLayer(casingId)) {
@@ -231,7 +279,7 @@ export default function TrainMapInner({
           },
         });
       }
-      if (!map.getLayer(labelId)) {
+      if (map.hasImage(labelImageId) && !map.getLayer(labelId)) {
         map.addLayer({
           id: labelId,
           type: "symbol",
@@ -262,7 +310,7 @@ export default function TrainMapInner({
         });
       }
 
-      const visibility = visibleLineIds.has(line.id) ? "visible" : "none";
+      const visibility = visible ? "visible" : "none";
       if (map.getLayer(casingId)) {
         map.setLayoutProperty(casingId, "visibility", visibility);
       }
@@ -275,14 +323,8 @@ export default function TrainMapInner({
       }
     }
 
-    const style = map.getStyle();
-    for (const sourceId of Object.keys(style.sources ?? {})) {
-      if (
-        !sourceId.startsWith("railway-route-") ||
-        activeSourceIds.has(sourceId)
-      ) {
-        continue;
-      }
+    for (const sourceId of routeSourceIdsRef.current) {
+      if (activeSourceIds.has(sourceId)) continue;
       const casingId = `${sourceId}-casing`;
       const lineId = `${sourceId}-line`;
       const labelId = `${sourceId}-label`;
@@ -293,6 +335,7 @@ export default function TrainMapInner({
       if (map.getSource(sourceId)) map.removeSource(sourceId);
       if (map.hasImage(labelImageId)) map.removeImage(labelImageId);
     }
+    routeSourceIdsRef.current = activeSourceIds;
   }, [mapReady, railwayLines, visibleLineIds]);
 
   // --- 選択路線が画面の主役になるよう、表示範囲を自動調整 ---
@@ -444,7 +487,7 @@ export default function TrainMapInner({
         marker.setLngLat([train.longitude, train.latitude]);
       }
 
-      styleTrainElement(marker.getElement(), {
+      const styleArgs: TrainStyleArgs = {
         color: appearance.color,
         ring: appearance.ring,
         symbol: appearance.symbol,
@@ -470,12 +513,22 @@ export default function TrainMapInner({
             ? 0
             : Math.max(0, Math.round(train.delayMinutes)),
         selected: isSelected,
-      });
+      };
+      const markerElement = marker.getElement();
+      const previousStyleArgs = trainStyleArgsRef.current.get(markerElement);
+      if (
+        !previousStyleArgs ||
+        !sameTrainStyleArgs(previousStyleArgs, styleArgs)
+      ) {
+        styleTrainElement(markerElement, styleArgs);
+        trainStyleArgsRef.current.set(markerElement, styleArgs);
+      }
     }
 
     // 消えた列車のマーカーを削除
     for (const [id, marker] of markers) {
       if (!seen.has(id)) {
+        trainStyleArgsRef.current.delete(marker.getElement());
         marker.remove();
         markers.delete(id);
         trainMotionRef.current.delete(id);
@@ -483,13 +536,40 @@ export default function TrainMapInner({
     }
   }, [trains, selectedId, now]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !selectedId) return;
+    const marker = trainMarkersRef.current.get(selectedId);
+    if (!marker) return;
+
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    map.stop();
+    map.easeTo({
+      center: marker.getLngLat(),
+      zoom: Math.max(map.getZoom(), 13),
+      duration: reducedMotion ? 0 : 650,
+    });
+  }, [mapReady, selectedId]);
+
   return (
-    <div
-      ref={containerRef}
-      className="absolute inset-0 h-full w-full"
-      aria-label="関東エリアのJR列車位置地図"
-      role="application"
-    />
+    <>
+      <div
+        ref={containerRef}
+        className="absolute inset-0 h-full w-full"
+        aria-label="関東エリアのJR列車位置地図"
+        role="application"
+      />
+      {geolocationError && (
+        <p
+          role="status"
+          className="app-material pointer-events-none absolute right-3 top-24 z-20 max-w-[17rem] rounded-xl border border-amber-300/50 px-3 py-2 text-xs leading-5 text-amber-100 shadow-lg"
+        >
+          {geolocationError}
+        </p>
+      )}
+    </>
   );
 }
 
@@ -575,6 +655,24 @@ interface TrainStyleArgs {
   face: "normal" | "delayed" | "suspended";
   delayMinutes: number;
   selected: boolean;
+}
+
+function sameTrainStyleArgs(
+  previous: TrainStyleArgs,
+  next: TrainStyleArgs,
+): boolean {
+  return (
+    previous.color === next.color &&
+    previous.ring === next.ring &&
+    previous.symbol === next.symbol &&
+    previous.label === next.label &&
+    previous.lineColor === next.lineColor &&
+    previous.directionKind === next.directionKind &&
+    previous.directionLabel === next.directionLabel &&
+    previous.face === next.face &&
+    previous.delayMinutes === next.delayMinutes &&
+    previous.selected === next.selected
+  );
 }
 
 function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {

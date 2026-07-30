@@ -73,6 +73,15 @@ export interface TrainLocation {
   routeSegment: RouteSegmentEstimate | null;
 }
 
+/**
+ * `/api/trains` が返す転送用DTO。
+ * 路線ごとに重複する表示名・色は `/api/railways` の情報をクライアントで結合する。
+ */
+export type TrainLocationPayload = Omit<
+  TrainLocation,
+  "lineName" | "lineColor"
+>;
+
 /** 路線全体の運行情報 */
 export interface ServiceStatus {
   /** アプリ内で一意な路線ID */
@@ -91,7 +100,7 @@ export type ProviderSource = "odpt" | "mock";
 
 /** API /api/trains のレスポンス形式 */
 export interface TrainsApiResponse {
-  trains: TrainLocation[];
+  trains: TrainLocationPayload[];
   /** ISO8601 文字列。サーバー側での生成時刻 */
   generatedAt: string;
   /** ISO8601 文字列。表示中データの dc:date のうち最新の時刻。 */

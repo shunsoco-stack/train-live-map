@@ -14,10 +14,12 @@ function report(
   status: CommunityReportRecord["status"],
   ageMs: number,
   lineId = "tokaido",
+  reporterIpHash?: string,
 ): CommunityReportRecord {
   return {
     lineId,
     reporterHash,
+    reporterIpHash,
     status,
     delayMinutes: null,
     createdAt: new Date(NOW - ageMs).toISOString(),
@@ -86,12 +88,56 @@ test("直前5分にも票が多い場合は2倍以上の増加を必要とする
   assert.equal(result.detected, false);
 });
 
-test("同じ投稿者の重複レコードは1票として扱う", () => {
+test("同じIPの重複レコードは投稿者IDが異なっても1票として扱う", () => {
   const result = detectSuspensionSpike(
     [
-      report("same", "suspended", 60_000),
-      report("same", "suspended", 90_000),
-      report("b", "suspended", 120_000),
+      report("reporter-a", "suspended", 60_000, "tokaido", "ip-a"),
+      report("reporter-b", "suspended", 90_000, "tokaido", "ip-a"),
+      report("reporter-c", "suspended", 120_000, "tokaido", "ip-b"),
+    ],
+    "tokaido",
+    NOW,
+  );
+  assert.equal(result.recentSuspended, 2);
+  assert.equal(result.detected, false);
+});
+
+test("同一IPから投稿者IDを量産しても急増通知を発火しない", () => {
+  const reports = Array.from({ length: 20 }, (_, index) =>
+    report(
+      `forged-reporter-${index}`,
+      "suspended",
+      10_000 + index * 1_000,
+      "tokaido",
+      "same-ip",
+    ),
+  );
+  const result = detectSuspensionSpike(reports, "tokaido", NOW);
+  assert.equal(result.recentSuspended, 1);
+  assert.equal(result.recentTotal, 1);
+  assert.equal(result.detected, false);
+});
+
+test("3つの独立IPからの見合わせ票なら急増候補になる", () => {
+  const result = detectSuspensionSpike(
+    [
+      report("reporter-a", "suspended", 60_000, "tokaido", "ip-a"),
+      report("reporter-b", "suspended", 90_000, "tokaido", "ip-b"),
+      report("reporter-c", "suspended", 120_000, "tokaido", "ip-c"),
+    ],
+    "tokaido",
+    NOW,
+  );
+  assert.equal(result.recentSuspended, 3);
+  assert.equal(result.detected, true);
+});
+
+test("旧レコードはreporterHashへフォールバックして集約する", () => {
+  const result = detectSuspensionSpike(
+    [
+      report("legacy-a", "suspended", 60_000),
+      report("legacy-a", "suspended", 90_000),
+      report("legacy-b", "suspended", 120_000),
     ],
     "tokaido",
     NOW,

@@ -44,6 +44,8 @@ function parseStoredReports(members: readonly string[]): StoredReport[] {
         !record ||
         typeof record.lineId !== "string" ||
         typeof record.reporterHash !== "string" ||
+        (record.reporterIpHash !== undefined &&
+          typeof record.reporterIpHash !== "string") ||
         typeof record.createdAt !== "string"
       ) {
         return [];

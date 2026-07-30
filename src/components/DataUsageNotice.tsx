@@ -1,6 +1,7 @@
 "use client";
 
 import { Info, Mail, X } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ProviderSource } from "@/types/train";
@@ -107,6 +108,26 @@ export function DataUsageNotice({ source }: DataUsageNoticeProps) {
                   アプリの内容について、公共交通事業者へ直接問い合わせないでください。
                 </p>
               </div>
+
+              <nav
+                aria-label="ポリシー"
+                className="mt-5 grid grid-cols-2 gap-2"
+              >
+                <Link
+                  href="/privacy"
+                  onClick={() => setOpen(false)}
+                  className="pressable flex min-h-11 items-center justify-center rounded-xl border border-rail-border px-3 text-center text-sm font-semibold text-sky-300 hover:border-sky-300/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+                >
+                  プライバシー
+                </Link>
+                <Link
+                  href="/terms"
+                  onClick={() => setOpen(false)}
+                  className="pressable flex min-h-11 items-center justify-center rounded-xl border border-rail-border px-3 text-center text-sm font-semibold text-sky-300 hover:border-sky-300/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+                >
+                  利用規約・免責
+                </Link>
+              </nav>
 
               <div className="mt-5 rounded-xl border border-rail-border bg-rail-bg/70 p-3">
                 <p className="text-xs font-semibold text-rail-muted">

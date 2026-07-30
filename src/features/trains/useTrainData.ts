@@ -6,18 +6,27 @@ import {
   fetchServiceStatus,
   fetchTrains,
 } from "@/lib/apiClient";
+import {
+  safeGetBrowserStorage,
+  safeWriteStorage,
+} from "@/lib/browserGuidance";
 import { createLogger } from "@/lib/logger";
 import { PagePollingController } from "@/lib/pagePolling";
 import { InFlightRequestGate } from "@/lib/requestGate";
-import type { ProviderSource, ServiceStatus, TrainLocation } from "@/types/train";
+import type {
+  ProviderSource,
+  ServiceStatus,
+  TrainLocationPayload,
+} from "@/types/train";
 import { calculateServerClockOffsetMs } from "@/lib/time";
+import { LAST_TRAIN_DATA_AT_STORAGE_KEY } from "@/lib/offline";
 
 /** データ再取得間隔(ミリ秒)。5〜10秒の範囲。 */
 export const REFRESH_MS = 7000;
 const log = createLogger("train-data");
 
 interface TrainDataState {
-  trains: TrainLocation[];
+  trains: TrainLocationPayload[];
   serviceStatuses: ServiceStatus[];
   isMock: boolean;
   /** 実際に使われたデータ取得元 */
@@ -30,6 +39,8 @@ interface TrainDataState {
   loading: boolean;
   /** 直近の取得でエラーが発生したか */
   error: string | null;
+  /** 運行情報だけの連続取得失敗回数 */
+  serviceStatusFailureCount: number;
   /** ブラウザがネットワーク接続ありと判定しているか */
   isOnline: boolean;
   /** 最終データ更新時刻(クライアントで取得成功した時刻) */
@@ -70,6 +81,7 @@ export function useTrainData(
     notice: null,
     loading: true,
     error: null,
+    serviceStatusFailureCount: 0,
     isOnline:
       typeof navigator === "undefined" ? true : navigator.onLine,
     lastUpdatedAt: null,
@@ -86,6 +98,12 @@ export function useTrainData(
         Date.now(),
         data.generatedAt,
       );
+      const retrievedAt = new Date();
+      safeWriteStorage(
+        safeGetBrowserStorage("localStorage"),
+        LAST_TRAIN_DATA_AT_STORAGE_KEY,
+        retrievedAt.toISOString(),
+      );
       setState((prev) => ({
         ...prev,
         trains: data.trains,
@@ -95,7 +113,7 @@ export function useTrainData(
         notice: data.notice,
         loading: false,
         error: null,
-        lastUpdatedAt: new Date(),
+        lastUpdatedAt: retrievedAt,
         dataUpdatedAt: new Date(data.dataUpdatedAt),
         serverClockOffsetMs:
           nextClockOffsetMs ?? prev.serverClockOffsetMs,
@@ -123,9 +141,15 @@ export function useTrainData(
       setState((prev) => ({
         ...prev,
         serviceStatuses: data.serviceStatuses ?? [data.serviceStatus],
+        serviceStatusFailureCount: 0,
       }));
     } catch (error) {
       if (!signal?.aborted) {
+        setState((previous) => ({
+          ...previous,
+          serviceStatusFailureCount:
+            previous.serviceStatusFailureCount + 1,
+        }));
         log.warn("運行情報の取得に失敗", {
           message: apiErrorMessage(
             error,

@@ -28,6 +28,10 @@ const APPEARANCE: Record<StatusLevel, Omit<StatusAppearance, "level">> = {
   unknown: { color: "#6b7280", ring: "#374151", label: "不明", symbol: "？" },
 };
 
+export const STATUS_APPEARANCES: readonly StatusAppearance[] = (
+  Object.keys(APPEARANCE) as StatusLevel[]
+).map((level) => ({ level, ...APPEARANCE[level] }));
+
 /**
  * ODPT実測では更新直後でも60〜80秒、末尾は5〜10分程度のばらつきがある。
  * 90秒で全列車が周期的に不明になる誤判定を避けるため、まず300秒とする。
@@ -71,6 +75,17 @@ export function getStatusAppearance(train: TrainLocation, now: Date = new Date()
   return { level, ...APPEARANCE[level] };
 }
 
+export type TrainFilterKey = "all" | "on-time" | "delayed" | "stale";
+type TrainDetailFilterKey = Exclude<TrainFilterKey, "all">;
+
+function detailFilterForTrain(
+  train: TrainLocation,
+  now: Date,
+): TrainDetailFilterKey {
+  if (resolveStatusLevel(train, now) === "unknown") return "stale";
+  return train.delayMinutes >= 1 ? "delayed" : "on-time";
+}
+
 /** フィルターのカテゴリ判定に使う、状態の大分類。 */
 export function matchesFilter(
   train: TrainLocation,
@@ -78,16 +93,8 @@ export function matchesFilter(
   now: Date = new Date(),
 ): boolean {
   if (filter === "all") return true;
-  const level = resolveStatusLevel(train, now);
-  const isStale = level === "unknown";
-  if (filter === "stale") return isStale;
-  if (isStale) return false;
-
-  const hasDelay = train.delayMinutes >= 1;
-  return filter === "delayed" ? hasDelay : !hasDelay;
+  return detailFilterForTrain(train, now) === filter;
 }
-
-export type TrainFilterKey = "all" | "on-time" | "delayed" | "stale";
 
 export const TRAIN_FILTERS: { key: TrainFilterKey; label: string }[] = [
   { key: "all", label: "すべて" },
@@ -95,6 +102,39 @@ export const TRAIN_FILTERS: { key: TrainFilterKey; label: string }[] = [
   { key: "delayed", label: "遅延あり" },
   { key: "stale", label: "情報が古い" },
 ];
+
+export interface TrainFilterSummary {
+  counts: Record<TrainFilterKey, number>;
+  filtered: TrainLocation[];
+}
+
+/**
+ * 列車配列を一度だけ走査し、全フィルター件数と選択中フィルターの列車を返す。
+ */
+export function summarizeTrainFilters(
+  trains: readonly TrainLocation[],
+  activeFilter: TrainFilterKey,
+  now: Date,
+): TrainFilterSummary {
+  const counts: Record<TrainFilterKey, number> = {
+    all: 0,
+    "on-time": 0,
+    delayed: 0,
+    stale: 0,
+  };
+  const filtered: TrainLocation[] = [];
+
+  for (const train of trains) {
+    const detailFilter = detailFilterForTrain(train, now);
+    counts.all += 1;
+    counts[detailFilter] += 1;
+    if (activeFilter === "all" || activeFilter === detailFilter) {
+      filtered.push(train);
+    }
+  }
+
+  return { counts, filtered };
+}
 
 /** 状態の日本語表記(詳細パネル用)。 */
 export function statusLabelJa(status: TrainStatus): string {

@@ -7,6 +7,7 @@ import {
 import { trainLocationService } from "@/services/trainLocationService";
 import type { TrainsApiResponse } from "@/types/train";
 import { createLogger } from "@/lib/logger";
+import { serializeTrainLocation } from "@/lib/trainPayload";
 import { parseTrainLineFilter } from "@/lib/trainLineFilter";
 
 // Next.jsの静的化は避け、短い共有キャッシュはレスポンスヘッダーで制御する。
@@ -34,6 +35,7 @@ export async function GET(request: NextRequest) {
       selectedLineIds === null
         ? trains
         : trains.filter((train) => selectedLineIds.has(train.lineId));
+    const trainPayloads = visibleTrains.map(serializeTrainLocation);
     const generatedAt = new Date().toISOString();
     const latestTrainTimestamp = visibleTrains.reduce<string | null>((latest, train) => {
       const timestamp = Date.parse(train.lastUpdatedAt);
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
       durationMs: Date.now() - start,
     });
     const body: TrainsApiResponse = {
-      trains: visibleTrains,
+      trains: trainPayloads,
       generatedAt,
       dataUpdatedAt: latestTrainTimestamp ?? generatedAt,
       isMock,

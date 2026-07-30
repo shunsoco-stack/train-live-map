@@ -144,7 +144,7 @@ export function BrowserGuidance({
                 aria-hidden
               />
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold tracking-[0.02em] text-orange-200">
+                <p className="font-rounded text-xs font-semibold tracking-[0.02em] text-orange-200">
                   Train Live Map｜JR東日本・関東版
                 </p>
                 <h2

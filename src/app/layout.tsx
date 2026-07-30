@@ -1,68 +1,80 @@
 import type { Metadata, Viewport } from "next";
-import { headers } from "next/headers";
+import localFont from "next/font/local";
 import Script from "next/script";
-import "@fontsource/m-plus-rounded-1c/400.css";
-import "@fontsource/m-plus-rounded-1c/700.css";
-import "@fontsource/m-plus-rounded-1c/800.css";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
+import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { adsenseClientId } from "@/lib/adsense";
 import "./globals.css";
+
+const roundedBrandFont = localFont({
+  src: "./fonts/m-plus-rounded-brand-routes-700.woff2",
+  display: "swap",
+  fallback: [
+    "Hiragino Maru Gothic ProN",
+    "Hiragino Kaku Gothic ProN",
+    "Yu Gothic UI",
+    "Noto Sans JP",
+    "sans-serif",
+  ],
+  style: "normal",
+  variable: "--font-rounded-web",
+  weight: "700",
+});
 
 const title = "Train Live Map｜JR東日本・関東版";
 const description =
   "JR東日本の関東エリアを走る在来線の列車位置と運行状況を地図上で確認できる非公式Webアプリ。";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const requestHeaders = await headers();
-  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-  const protocol =
-    requestHeaders.get("x-forwarded-proto") ??
-    (host?.startsWith("127.0.0.1") || host?.startsWith("localhost")
-      ? "http"
-      : "https");
-  const origin = host ? `${protocol}://${host}` : "http://127.0.0.1:3000";
-  const imageUrl = new URL(
-    "/og-train-live-map-jr-east-kanto.png",
-    origin,
-  ).toString();
+const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+const metadataBase = (() => {
+  try {
+    return new URL(configuredSiteUrl || "https://train-live-map.vercel.app");
+  } catch {
+    return new URL("https://train-live-map.vercel.app");
+  }
+})();
+const imageUrl = new URL(
+  "/og-train-live-map-jr-east-kanto.png",
+  metadataBase,
+).toString();
 
-  return {
+export const metadata: Metadata = {
+  metadataBase,
+  title,
+  description,
+  applicationName: "Train Live Map｜JR東日本・関東版",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "Train Live Map",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  other: adsenseClientId
+    ? { "google-adsense-account": adsenseClientId }
+    : undefined,
+  openGraph: {
     title,
     description,
-    applicationName: "Train Live Map｜JR東日本・関東版",
-    manifest: "/manifest.webmanifest",
-    appleWebApp: {
-      capable: true,
-      title: "Train Live Map",
-      statusBarStyle: "black-translucent",
-    },
-    formatDetection: {
-      telephone: false,
-    },
-    other: adsenseClientId
-      ? { "google-adsense-account": adsenseClientId }
-      : undefined,
-    openGraph: {
-      title,
-      description,
-      type: "website",
-      images: [
-        {
-          url: imageUrl,
-          width: 1732,
-          height: 907,
-          alt: "Train Live Map — JR東日本・関東版の非公式アプリ",
-        },
-      ],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: [imageUrl],
-    },
-  };
-}
+    type: "website",
+    images: [
+      {
+        url: imageUrl,
+        width: 1732,
+        height: 907,
+        alt: "Train Live Map — JR東日本・関東版の非公式アプリ",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+    images: [imageUrl],
+  },
+};
 
 export const viewport: Viewport = {
   themeColor: "#0b513b",
@@ -79,12 +91,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ja">
+    <html lang="ja" className={roundedBrandFont.variable}>
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
-      <body className="font-sans antialiased">
+      <body className="antialiased">
         <AppErrorBoundary>{children}</AppErrorBoundary>
+        <ServiceWorkerRegistration />
         {adsenseClientId && (
           <Script
             id="google-adsense"
