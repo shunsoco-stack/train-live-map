@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
+import { apiErrorMessage } from "@/lib/apiClient";
 import type { ProviderSource } from "@/types/train";
 
 /**
@@ -56,7 +57,7 @@ export function DebugView() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setData((await res.json()) as DebugResponse);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "取得に失敗しました");
+      setError(apiErrorMessage(err, "取得に失敗しました"));
     } finally {
       setLoading(false);
     }

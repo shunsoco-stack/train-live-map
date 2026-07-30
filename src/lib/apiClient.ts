@@ -23,8 +23,72 @@ import { trainsApiUrl } from "./trainLineFilter.ts";
 
 export const API_FETCH_TIMEOUT_MS = 8_000;
 
+export type ApiErrorKind =
+  | "timeout"
+  | "network"
+  | "http"
+  | "invalid-response"
+  | "unknown";
+
+export class ApiError extends Error {
+  readonly kind: ApiErrorKind;
+  readonly status?: number;
+
+  constructor(
+    kind: ApiErrorKind,
+    message: string,
+    status?: number,
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+    this.name = "ApiError";
+    this.kind = kind;
+    this.status = status;
+  }
+}
+
 export class FetchTimeoutError extends Error {
   override name = "TimeoutError";
+}
+
+export function normalizeApiError(
+  error: unknown,
+  fallbackMessage: string,
+): ApiError {
+  if (error instanceof ApiError) return error;
+  if (
+    error instanceof FetchTimeoutError ||
+    (error instanceof Error &&
+      (error.name === "AbortError" || error.name === "TimeoutError"))
+  ) {
+    return new ApiError(
+      "timeout",
+      "通信がタイムアウトしました",
+      undefined,
+      { cause: error },
+    );
+  }
+  if (error instanceof TypeError) {
+    return new ApiError(
+      "network",
+      "通信できません。接続を確認してください",
+      undefined,
+      { cause: error },
+    );
+  }
+  return new ApiError(
+    "unknown",
+    fallbackMessage,
+    undefined,
+    { cause: error },
+  );
+}
+
+export function apiErrorMessage(
+  error: unknown,
+  fallbackMessage: string,
+): string {
+  return normalizeApiError(error, fallbackMessage).message;
 }
 
 export async function fetchWithTimeout(
@@ -70,12 +134,71 @@ async function getJson<T>(
   url: string,
   signal?: AbortSignal,
   cache: RequestCache = "no-store",
+  fallbackMessage = "データを取得できませんでした。",
 ): Promise<T> {
-  const res = await fetchWithTimeout(url, { signal, cache });
-  if (!res.ok) {
-    throw new Error(`リクエスト失敗 (${res.status}): ${url}`);
+  try {
+    const response = await fetchWithTimeout(url, { signal, cache });
+    return await responseJson<T>(response, fallbackMessage);
+  } catch (error) {
+    throw normalizeApiError(error, fallbackMessage);
   }
-  return (await res.json()) as T;
+}
+
+async function responseErrorMessage(
+  response: Response,
+  fallbackMessage: string,
+): Promise<string> {
+  try {
+    const data = (await response.json()) as unknown;
+    if (
+      data &&
+      typeof data === "object" &&
+      !Array.isArray(data) &&
+      typeof (data as { error?: unknown }).error === "string" &&
+      (data as { error: string }).error.trim()
+    ) {
+      return (data as { error: string }).error;
+    }
+  } catch {
+    // HTMLや空本文のエラー応答では、利用者向けの既定文言を使う。
+  }
+  return fallbackMessage;
+}
+
+async function responseJson<T>(
+  response: Response,
+  fallbackMessage: string,
+): Promise<T> {
+  if (!response.ok) {
+    throw new ApiError(
+      "http",
+      await responseErrorMessage(response, fallbackMessage),
+      response.status,
+    );
+  }
+  try {
+    return (await response.json()) as T;
+  } catch (error) {
+    throw new ApiError(
+      "invalid-response",
+      "サーバーからの応答を読み取れませんでした",
+      response.status,
+      { cause: error },
+    );
+  }
+}
+
+async function requestJson<T>(
+  url: string,
+  init: RequestInit,
+  fallbackMessage: string,
+): Promise<T> {
+  try {
+    const response = await fetchWithTimeout(url, init);
+    return await responseJson<T>(response, fallbackMessage);
+  } catch (error) {
+    throw normalizeApiError(error, fallbackMessage);
+  }
 }
 
 export function fetchTrains(
@@ -86,6 +209,7 @@ export function fetchTrains(
     trainsApiUrl(lineIds),
     signal,
     "default",
+    "列車情報を取得できませんでした。",
   );
 }
 
@@ -96,13 +220,19 @@ export function fetchServiceStatus(
     "/api/service-status",
     signal,
     "default",
+    "運行情報を取得できませんでした。",
   );
 }
 
 export function fetchRailways(
   signal?: AbortSignal,
 ): Promise<RailwaysApiResponse> {
-  return getJson<RailwaysApiResponse>("/api/railways", signal);
+  return getJson<RailwaysApiResponse>(
+    "/api/railways",
+    signal,
+    "no-store",
+    "路線情報を取得できませんでした。",
+  );
 }
 
 export function fetchCommunityReports(
@@ -111,6 +241,8 @@ export function fetchCommunityReports(
   return getJson<CommunityReportsApiResponse>(
     "/api/community-reports",
     signal,
+    "no-store",
+    "みんなの運行情報を取得できませんでした。",
   );
 }
 
@@ -118,49 +250,44 @@ export async function submitCommunityReport(
   vote: CommunityReportVote,
   reporterId: string,
 ): Promise<CommunityReportSubmitResponse> {
-  const response = await fetch("/api/community-reports", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Community-Reporter": reporterId,
+  return requestJson<CommunityReportSubmitResponse>(
+    "/api/community-reports",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Community-Reporter": reporterId,
+      },
+      body: JSON.stringify(vote),
     },
-    body: JSON.stringify(vote),
-  });
-  const data = (await response.json()) as
-    | CommunityReportSubmitResponse
-    | { error?: string };
-  if (!response.ok) {
-    throw new Error(
-      "error" in data && data.error
-        ? data.error
-        : `投票に失敗しました (${response.status})`,
-    );
-  }
-  return data as CommunityReportSubmitResponse;
+    "投票に失敗しました。",
+  );
 }
 
 export function fetchPushConfig(
   signal?: AbortSignal,
 ): Promise<PushConfigResponse> {
-  return getJson<PushConfigResponse>("/api/push/config", signal);
+  return getJson<PushConfigResponse>(
+    "/api/push/config",
+    signal,
+    "no-store",
+    "通知機能を準備できませんでした。",
+  );
 }
 
 async function pushSubscriptionRequest<T>(
   method: "POST" | "DELETE",
   body: SavePushSubscriptionRequest | DeletePushSubscriptionRequest,
 ): Promise<T> {
-  const response = await fetch("/api/push/subscriptions", {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = (await response.json()) as T & { error?: string };
-  if (!response.ok) {
-    throw new Error(
-      data.error ?? `通知設定の更新に失敗しました (${response.status})`,
-    );
-  }
-  return data;
+  return requestJson<T>(
+    "/api/push/subscriptions",
+    {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    "通知設定を更新できませんでした。",
+  );
 }
 
 export function savePushSubscription(

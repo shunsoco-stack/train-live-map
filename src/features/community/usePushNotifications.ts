@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  apiErrorMessage,
   deletePushSubscription,
   fetchPushConfig,
   savePushSubscription,
@@ -200,10 +201,10 @@ export function usePushNotifications() {
         setState((previous) => ({
           ...previous,
           status: "error",
-          error:
-            error instanceof Error
-              ? error.message
-              : "通知機能を準備できませんでした。",
+          error: apiErrorMessage(
+            error,
+            "通知機能を準備できませんでした。",
+          ),
         }));
       }
     }
@@ -289,10 +290,10 @@ export function usePushNotifications() {
         setState((previous) => ({
           ...previous,
           busy: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "通知設定を更新できませんでした。",
+          error: apiErrorMessage(
+            error,
+            "通知設定を更新できませんでした。",
+          ),
         }));
         return false;
       }

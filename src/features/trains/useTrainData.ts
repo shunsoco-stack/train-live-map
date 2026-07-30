@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchServiceStatus, fetchTrains } from "@/lib/apiClient";
+import {
+  apiErrorMessage,
+  fetchServiceStatus,
+  fetchTrains,
+} from "@/lib/apiClient";
+import { createLogger } from "@/lib/logger";
 import { PagePollingController } from "@/lib/pagePolling";
 import { InFlightRequestGate } from "@/lib/requestGate";
 import type { ProviderSource, ServiceStatus, TrainLocation } from "@/types/train";
@@ -9,6 +14,7 @@ import { calculateServerClockOffsetMs } from "@/lib/time";
 
 /** データ再取得間隔(ミリ秒)。5〜10秒の範囲。 */
 export const REFRESH_MS = 7000;
+const log = createLogger("train-data");
 
 interface TrainDataState {
   trains: TrainLocation[];
@@ -24,6 +30,8 @@ interface TrainDataState {
   loading: boolean;
   /** 直近の取得でエラーが発生したか */
   error: string | null;
+  /** ブラウザがネットワーク接続ありと判定しているか */
+  isOnline: boolean;
   /** 最終データ更新時刻(クライアントで取得成功した時刻) */
   lastUpdatedAt: Date | null;
   /** 表示中データ自体の更新時刻。ODPT 利用時は dc:date が元になる。 */
@@ -62,6 +70,8 @@ export function useTrainData(
     notice: null,
     loading: true,
     error: null,
+    isOnline:
+      typeof navigator === "undefined" ? true : navigator.onLine,
     lastUpdatedAt: null,
     dataUpdatedAt: null,
     serverClockOffsetMs: 0,
@@ -95,10 +105,10 @@ export function useTrainData(
       setState((prev) => ({
         ...prev,
         loading: false,
-        error:
-          err instanceof Error
-            ? err.message
-            : "列車情報の取得に失敗しました",
+        error: apiErrorMessage(
+          err,
+          "列車情報の取得に失敗しました",
+        ),
       }));
     } finally {
       trainRequestGate.current.release(token);
@@ -114,8 +124,15 @@ export function useTrainData(
         ...prev,
         serviceStatuses: data.serviceStatuses ?? [data.serviceStatus],
       }));
-    } catch {
-      // 運行情報の失敗は致命的でないため、静かに無視(既存表示を維持)
+    } catch (error) {
+      if (!signal?.aborted) {
+        log.warn("運行情報の取得に失敗", {
+          message: apiErrorMessage(
+            error,
+            "運行情報を取得できませんでした。",
+          ),
+        });
+      }
     } finally {
       statusRequestGate.current.release(token);
     }
@@ -160,9 +177,18 @@ export function useTrainData(
         navigator.onLine,
       );
     };
-    const onOnline = () =>
+    const onOnline = () => {
+      setState((previous) => ({ ...previous, isOnline: true }));
       polling.handleOnline(document.visibilityState === "visible");
-    const onOffline = () => polling.handleOffline();
+    };
+    const onOffline = () => {
+      setState((previous) => ({
+        ...previous,
+        isOnline: false,
+        loading: false,
+      }));
+      polling.handleOffline();
+    };
 
     polling.start(
       document.visibilityState === "visible",

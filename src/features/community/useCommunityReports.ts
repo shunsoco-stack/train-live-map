@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  apiErrorMessage,
   fetchCommunityReports,
   submitCommunityReport,
 } from "@/lib/apiClient";
@@ -74,10 +75,10 @@ export function useCommunityReports() {
       setState((previous) => ({
         ...previous,
         loading: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "みんなの運行情報を取得できませんでした。",
+        error: apiErrorMessage(
+          error,
+          "みんなの運行情報を取得できませんでした。",
+        ),
       }));
     } finally {
       requestGate.current.release(token);
@@ -155,10 +156,10 @@ export function useCommunityReports() {
       setState((previous) => ({
         ...previous,
         submitting: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "投票を保存できませんでした。",
+        error: apiErrorMessage(
+          error,
+          "投票を保存できませんでした。",
+        ),
       }));
       return false;
     }

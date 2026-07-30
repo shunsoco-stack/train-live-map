@@ -27,6 +27,7 @@ import {
   safeWriteStorage,
 } from "@/lib/browserGuidance";
 import { useNow } from "@/lib/useNow";
+import { errorMessageForConnection } from "@/lib/networkStatus";
 import { applyServerClockOffset } from "@/lib/time";
 import { serviceStatusesForVisibleLines } from "@/lib/serviceStatus";
 import {
@@ -52,6 +53,7 @@ export function TrainDashboard() {
     notice,
     loading,
     error,
+    isOnline,
     lastUpdatedAt,
     dataUpdatedAt,
     serverClockOffsetMs,
@@ -150,6 +152,7 @@ export function TrainDashboard() {
     () => trains.find((t) => t.id === selectedId) ?? null,
     [trains, selectedId],
   );
+  const displayedError = errorMessageForConnection(isOnline, error);
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-rail-bg">
@@ -193,7 +196,9 @@ export function TrainDashboard() {
             ))}
           </div>
           <DataSourceNotice notice={notice} fallback={fallback} />
-          {error && <ErrorNotice message={error} onRetry={refresh} />}
+          {displayedError && (
+            <ErrorNotice message={displayedError} onRetry={refresh} />
+          )}
         </div>
 
         {/* 下部オーバーレイ: フィルター */}
@@ -206,7 +211,7 @@ export function TrainDashboard() {
         />
 
         {/* 初回ロード表示 */}
-        {loading && (
+        {loading && isOnline && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-rail-bg/80">
             <div className="flex items-center gap-2 text-rail-muted">
               <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
@@ -215,7 +220,7 @@ export function TrainDashboard() {
           </div>
         )}
 
-        {!loading && !error && trains.length === 0 && (
+        {!loading && !displayedError && trains.length === 0 && (
           <div className="pointer-events-none absolute inset-0 z-[9] flex items-center justify-center p-6">
             <section
               className="app-material pointer-events-auto max-w-sm rounded-2xl border border-rail-border p-5 text-center shadow-xl"
