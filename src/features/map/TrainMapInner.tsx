@@ -52,11 +52,22 @@ function routeLabelText(name: string): string {
  * ラスタ地図スタイルはglyphsを持たないため、路線名をCanvasで画像化する。
  * MapLibreのsymbolレイヤーに載せることで、線路に沿った回転・重なり回避が効く。
  */
-function createRouteLabelImage(name: string, lineColor: string): ImageData {
+let routeLabelCanvasWarningShown = false;
+
+function createRouteLabelImage(
+  name: string,
+  lineColor: string,
+): ImageData | null {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
   if (!context) {
-    throw new Error("路線名ラベル用のCanvasを初期化できませんでした。");
+    if (!routeLabelCanvasWarningShown) {
+      routeLabelCanvasWarningShown = true;
+      console.warn(
+        "路線名ラベル用のCanvasを初期化できないため、ラベルなしで続行します。",
+      );
+    }
+    return null;
   }
 
   const fontSize = 12 * ROUTE_LABEL_PIXEL_RATIO;
@@ -198,11 +209,15 @@ export default function TrainMapInner({
       }
 
       if (!map.hasImage(labelImageId)) {
-        map.addImage(
-          labelImageId,
-          createRouteLabelImage(routeLabelText(line.name), line.color),
-          { pixelRatio: ROUTE_LABEL_PIXEL_RATIO },
+        const labelImage = createRouteLabelImage(
+          routeLabelText(line.name),
+          line.color,
         );
+        if (labelImage) {
+          map.addImage(labelImageId, labelImage, {
+            pixelRatio: ROUTE_LABEL_PIXEL_RATIO,
+          });
+        }
       }
 
       if (!map.getLayer(casingId)) {
@@ -231,7 +246,7 @@ export default function TrainMapInner({
           },
         });
       }
-      if (!map.getLayer(labelId)) {
+      if (map.hasImage(labelImageId) && !map.getLayer(labelId)) {
         map.addLayer({
           id: labelId,
           type: "symbol",
