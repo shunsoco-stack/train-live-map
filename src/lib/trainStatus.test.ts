@@ -3,11 +3,17 @@ import test from "node:test";
 import type { TrainLocation } from "../types/train.ts";
 import { applyServerClockOffset } from "./time.ts";
 import {
+  matchesFilter,
   resolveStatusLevel,
   STALE_THRESHOLD_SECONDS,
+  TRAIN_FILTERS,
+  type TrainFilterKey,
 } from "./trainStatus.ts";
 
-function trainAt(lastUpdatedAt: string): TrainLocation {
+function trainAt(
+  lastUpdatedAt: string,
+  overrides: Partial<TrainLocation> = {},
+): TrainLocation {
   return {
     id: "test-train",
     lineId: "tokaido",
@@ -27,6 +33,7 @@ function trainAt(lastUpdatedAt: string): TrainLocation {
     stoppedSince: null,
     dataAccuracy: "estimated",
     routeSegment: null,
+    ...overrides,
   };
 }
 
@@ -61,4 +68,65 @@ test("端末時計が5分進んでいても補正後は新鮮な列車を不明�
     ),
     "unknown",
   );
+});
+
+test("4フィルタが遅延なし・遅延あり・情報が古いを排他的に分類する", () => {
+  const now = new Date("2026-07-31T12:00:00+09:00");
+  const trains = {
+    onTime: trainAt("2026-07-31T11:59:00+09:00"),
+    delayed: trainAt("2026-07-31T11:59:00+09:00", {
+      delayMinutes: 3,
+      status: "delayed",
+    }),
+    stale: trainAt("2026-07-31T11:50:00+09:00", {
+      delayMinutes: 3,
+      status: "delayed",
+    }),
+  };
+  const expected: Record<keyof typeof trains, TrainFilterKey[]> = {
+    onTime: ["all", "on-time"],
+    delayed: ["all", "delayed"],
+    stale: ["all", "stale"],
+  };
+
+  assert.deepEqual(
+    TRAIN_FILTERS.map((filter) => filter.label),
+    ["すべて", "遅延なし", "遅延あり", "情報が古い"],
+  );
+  for (const [name, train] of Object.entries(trains) as Array<
+    [keyof typeof trains, TrainLocation]
+  >) {
+    const matching = TRAIN_FILTERS.filter((filter) =>
+      matchesFilter(train, filter.key, now),
+    ).map((filter) => filter.key);
+    assert.deepEqual(matching, expected[name]);
+  }
+});
+
+test("3分類の件数合計がすべての件数と一致する", () => {
+  const now = new Date("2026-07-31T12:00:00+09:00");
+  const trains = [
+    trainAt("2026-07-31T11:59:00+09:00"),
+    trainAt("2026-07-31T11:59:00+09:00", {
+      delayMinutes: 3,
+      status: "delayed",
+    }),
+    trainAt("2026-07-31T11:50:00+09:00", {
+      delayMinutes: 3,
+      status: "delayed",
+    }),
+  ];
+  const count = (filter: TrainFilterKey) =>
+    trains.filter((train) => matchesFilter(train, filter, now)).length;
+
+  assert.equal(
+    count("on-time") + count("delayed") + count("stale"),
+    count("all"),
+  );
+  for (const train of trains) {
+    const detailMatches = (["on-time", "delayed", "stale"] as const).filter(
+      (filter) => matchesFilter(train, filter, now),
+    );
+    assert.equal(detailMatches.length, 1);
+  }
 });

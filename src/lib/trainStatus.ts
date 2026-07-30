@@ -79,28 +79,21 @@ export function matchesFilter(
 ): boolean {
   if (filter === "all") return true;
   const level = resolveStatusLevel(train, now);
-  switch (filter) {
-    case "running":
-      return level === "running";
-    case "stopped":
-      return level === "warn" || level === "danger";
-    case "delayed":
-      return train.delayMinutes > 0 && train.status !== "suspended";
-    case "suspended":
-      return level === "suspended";
-    default:
-      return true;
-  }
+  const isStale = level === "unknown";
+  if (filter === "stale") return isStale;
+  if (isStale) return false;
+
+  const hasDelay = train.delayMinutes >= 1;
+  return filter === "delayed" ? hasDelay : !hasDelay;
 }
 
-export type TrainFilterKey = "all" | "running" | "stopped" | "delayed" | "suspended";
+export type TrainFilterKey = "all" | "on-time" | "delayed" | "stale";
 
 export const TRAIN_FILTERS: { key: TrainFilterKey; label: string }[] = [
   { key: "all", label: "すべて" },
-  { key: "running", label: "走行中" },
-  { key: "stopped", label: "停止中" },
-  { key: "delayed", label: "遅延" },
-  { key: "suspended", label: "運転見合わせ" },
+  { key: "on-time", label: "遅延なし" },
+  { key: "delayed", label: "遅延あり" },
+  { key: "stale", label: "情報が古い" },
 ];
 
 /** 状態の日本語表記(詳細パネル用)。 */

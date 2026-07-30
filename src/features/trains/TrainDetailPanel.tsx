@@ -174,17 +174,15 @@ export function TrainDetailPanel({
           <DetailItem icon={Gauge} label="速度">
             {train.speedKmh} km/h
           </DetailItem>
-          <DetailItem icon={Clock} label="停止時間">
-            {train.stoppedSince ? (
+          {train.stoppedSince && (
+            <DetailItem icon={Clock} label="停止時間">
               <StoppedDuration
                 stoppedSince={train.stoppedSince}
                 now={now}
                 prefix=""
               />
-            ) : (
-              "—"
-            )}
-          </DetailItem>
+            </DetailItem>
+          )}
           <DetailItem icon={Clock} label="最終更新">
             {formatTimeJa(train.lastUpdatedAt)}
           </DetailItem>
