@@ -9,7 +9,11 @@ import {
 import { createLogger } from "@/lib/logger";
 import { PagePollingController } from "@/lib/pagePolling";
 import { InFlightRequestGate } from "@/lib/requestGate";
-import type { ProviderSource, ServiceStatus, TrainLocation } from "@/types/train";
+import type {
+  ProviderSource,
+  ServiceStatus,
+  TrainLocationPayload,
+} from "@/types/train";
 import { calculateServerClockOffsetMs } from "@/lib/time";
 
 /** データ再取得間隔(ミリ秒)。5〜10秒の範囲。 */
@@ -17,7 +21,7 @@ export const REFRESH_MS = 7000;
 const log = createLogger("train-data");
 
 interface TrainDataState {
-  trains: TrainLocation[];
+  trains: TrainLocationPayload[];
   serviceStatuses: ServiceStatus[];
   isMock: boolean;
   /** 実際に使われたデータ取得元 */

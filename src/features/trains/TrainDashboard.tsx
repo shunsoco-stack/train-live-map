@@ -31,6 +31,7 @@ import { errorMessageForConnection } from "@/lib/networkStatus";
 import { applyServerClockOffset } from "@/lib/time";
 import { serviceStatusesForVisibleLines } from "@/lib/serviceStatus";
 import { resolveTrainDashboardViewState } from "@/lib/trainDashboardViewState";
+import { restoreTrainLocations } from "@/lib/trainPayload";
 import {
   matchesFilter,
   TRAIN_FILTERS,
@@ -47,7 +48,7 @@ export function TrainDashboard() {
   );
   const railwaySelectionReady = useRef(false);
   const {
-    trains,
+    trains: trainPayloads,
     serviceStatuses,
     source,
     fallback,
@@ -66,6 +67,15 @@ export function TrainDashboard() {
     loading: railwayLoading,
     source: railwaySource,
   } = useRailwayNetwork();
+  const trains = useMemo(
+    () =>
+      restoreTrainLocations(
+        trainPayloads,
+        railwayLines,
+        railwayOptions,
+      ),
+    [trainPayloads, railwayLines, railwayOptions],
+  );
   const clientNow = useNow(1000);
   const now = useMemo(
     () => applyServerClockOffset(clientNow, serverClockOffsetMs),
