@@ -1,5 +1,5 @@
 import type { DataAccuracy, TrainLocation, TrainStatus, TrainType } from "@/types/train";
-import { elapsedSeconds } from "@/lib/time";
+import { elapsedSeconds } from "./time.ts";
 
 /**
  * 列車の見た目(色・ラベル・重要度)を決めるためのロジック。
@@ -29,6 +29,12 @@ const APPEARANCE: Record<StatusLevel, Omit<StatusAppearance, "level">> = {
 };
 
 /**
+ * ODPT実測では更新直後でも60〜80秒、末尾は5〜10分程度のばらつきがある。
+ * 90秒で全列車が周期的に不明になる誤判定を避けるため、まず300秒とする。
+ */
+export const STALE_THRESHOLD_SECONDS = 300;
+
+/**
  * 列車の状態と停止経過時間から表示レベルを決める。
  * - running / delayed: 緑(走行中)
  * - stopped 1分以上: 黄 / 5分以上: 赤
@@ -39,9 +45,14 @@ export function resolveStatusLevel(train: TrainLocation, now: Date = new Date())
   if (train.status === "suspended") return "suspended";
   if (train.status === "unknown") return "unknown";
 
-  // データが古い(90秒以上更新なし)場合は不明扱い
+  // 呼び出し側から、API生成時刻を基準に補正した now が渡される前提。
   const sinceUpdate = elapsedSeconds(train.lastUpdatedAt, now);
-  if (sinceUpdate !== null && sinceUpdate > 90) return "unknown";
+  if (
+    sinceUpdate !== null &&
+    sinceUpdate > STALE_THRESHOLD_SECONDS
+  ) {
+    return "unknown";
+  }
 
   if (train.status === "stopped") {
     const stoppedFor = elapsedSeconds(train.stoppedSince, now) ?? 0;

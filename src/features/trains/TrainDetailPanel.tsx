@@ -24,10 +24,10 @@ import {
 } from "@/lib/trainStatus";
 import { formatTimeJa } from "@/lib/time";
 import { StoppedDuration } from "@/features/trains/StoppedDuration";
-import { useNow } from "@/lib/useNow";
 
 interface TrainDetailPanelProps {
   train: TrainLocation | null;
+  now: Date;
   onClose: () => void;
 }
 
@@ -35,8 +35,11 @@ interface TrainDetailPanelProps {
  * 列車の詳細を表示するパネル。
  * スマホでは画面下から開くボトムシート風に表示する。
  */
-export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
-  const now = useNow(1000);
+export function TrainDetailPanel({
+  train,
+  now,
+  onClose,
+}: TrainDetailPanelProps) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const trainId = train?.id ?? null;
 
@@ -144,7 +147,7 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
           </span>
           {train.stoppedSince && (
             <span className="ml-2 text-sm font-medium text-amber-300">
-              <StoppedDuration stoppedSince={train.stoppedSince} />
+              <StoppedDuration stoppedSince={train.stoppedSince} now={now} />
             </span>
           )}
         </div>
@@ -173,7 +176,11 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
           </DetailItem>
           <DetailItem icon={Clock} label="停止時間">
             {train.stoppedSince ? (
-              <StoppedDuration stoppedSince={train.stoppedSince} prefix="" />
+              <StoppedDuration
+                stoppedSince={train.stoppedSince}
+                now={now}
+                prefix=""
+              />
             ) : (
               "—"
             )}

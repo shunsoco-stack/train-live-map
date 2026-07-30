@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchServiceStatus, fetchTrains } from "@/lib/apiClient";
 import type { ProviderSource, ServiceStatus, TrainLocation } from "@/types/train";
+import { calculateServerClockOffsetMs } from "@/lib/time";
 
 /** データ再取得間隔(ミリ秒)。5〜10秒の範囲。 */
 export const REFRESH_MS = 7000;
@@ -25,6 +26,8 @@ interface TrainDataState {
   lastUpdatedAt: Date | null;
   /** 表示中データ自体の更新時刻。ODPT 利用時は dc:date が元になる。 */
   dataUpdatedAt: Date | null;
+  /** 端末時刻 − API生成時刻。鮮度判定から端末時計のずれを除く。 */
+  serverClockOffsetMs: number;
 }
 
 interface UseTrainDataResult extends TrainDataState {
@@ -50,11 +53,16 @@ export function useTrainData(): UseTrainDataResult {
     error: null,
     lastUpdatedAt: null,
     dataUpdatedAt: null,
+    serverClockOffsetMs: 0,
   });
 
   const loadTrains = useCallback(async (signal?: AbortSignal) => {
     try {
       const data = await fetchTrains(signal);
+      const nextClockOffsetMs = calculateServerClockOffsetMs(
+        Date.now(),
+        data.generatedAt,
+      );
       setState((prev) => ({
         ...prev,
         trains: data.trains,
@@ -66,6 +74,8 @@ export function useTrainData(): UseTrainDataResult {
         error: null,
         lastUpdatedAt: new Date(),
         dataUpdatedAt: new Date(data.dataUpdatedAt),
+        serverClockOffsetMs:
+          nextClockOffsetMs ?? prev.serverClockOffsetMs,
       }));
     } catch (err) {
       if (signal?.aborted) return;

@@ -21,6 +21,35 @@ export function elapsedSeconds(fromIso: string | null, now: Date = new Date()): 
 }
 
 /**
+ * API応答を受信した端末時刻と、サーバーの生成時刻との差を求める。
+ * 端末時計が進んでいる場合は正数、遅れている場合は負数になる。
+ */
+export function calculateServerClockOffsetMs(
+  clientReceivedAtMs: number,
+  generatedAt: string,
+): number | null {
+  const serverGeneratedAtMs = Date.parse(generatedAt);
+  if (
+    !Number.isFinite(clientReceivedAtMs) ||
+    Number.isNaN(serverGeneratedAtMs)
+  ) {
+    return null;
+  }
+  return clientReceivedAtMs - serverGeneratedAtMs;
+}
+
+/** 端末時刻からサーバーとの差を引き、鮮度判定用の基準時刻へ補正する。 */
+export function applyServerClockOffset(
+  clientNow: Date,
+  serverClockOffsetMs: number,
+): Date {
+  const offset = Number.isFinite(serverClockOffsetMs)
+    ? serverClockOffsetMs
+    : 0;
+  return new Date(clientNow.getTime() - offset);
+}
+
+/**
  * 秒数を「12分05秒」「42秒」「1時間03分」形式の日本語文字列にする。
  * 停止時間表示に使用。
  */

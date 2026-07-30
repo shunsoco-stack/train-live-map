@@ -17,6 +17,7 @@ import { TrainDetailPanel } from "@/features/trains/TrainDetailPanel";
 import { TrainFilterBar } from "@/features/trains/TrainFilterBar";
 import { useTrainData } from "@/features/trains/useTrainData";
 import { useNow } from "@/lib/useNow";
+import { applyServerClockOffset } from "@/lib/time";
 import { serviceStatusesForVisibleLines } from "@/lib/serviceStatus";
 import {
   matchesFilter,
@@ -44,6 +45,7 @@ export function TrainDashboard() {
     error,
     lastUpdatedAt,
     dataUpdatedAt,
+    serverClockOffsetMs,
     refresh,
   } = useTrainData();
   const {
@@ -51,7 +53,11 @@ export function TrainDashboard() {
     options: railwayOptions,
     loading: railwayLoading,
   } = useRailwayNetwork();
-  const now = useNow(1000);
+  const clientNow = useNow(1000);
+  const now = useMemo(
+    () => applyServerClockOffset(clientNow, serverClockOffsetMs),
+    [clientNow, serverClockOffsetMs],
+  );
 
   const [filter, setFilter] = useState<TrainFilterKey>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -242,7 +248,11 @@ export function TrainDashboard() {
       <AdSenseBanner />
 
       {/* 詳細ボトムシート */}
-      <TrainDetailPanel train={selectedTrain} onClose={() => setSelectedId(null)} />
+      <TrainDetailPanel
+        train={selectedTrain}
+        now={now}
+        onClose={() => setSelectedId(null)}
+      />
     </div>
   );
 }
