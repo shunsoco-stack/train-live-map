@@ -11,6 +11,8 @@ export interface CommunityReportVote {
 
 export interface CommunityReportRecord extends CommunityReportVote {
   reporterHash: string;
+  /** ソルト付きIPハッシュ。追加前の保存データでは存在しない。 */
+  reporterIpHash?: string;
   createdAt: string;
 }
 

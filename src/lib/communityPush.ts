@@ -20,7 +20,7 @@ function reportsInWindow(
   fromExclusive: number,
   toInclusive: number,
 ): CommunityReportRecord[] {
-  const latestByReporter = new Map<string, CommunityReportRecord>();
+  const latestByIp = new Map<string, CommunityReportRecord>();
 
   for (const report of reports) {
     if (report.lineId !== lineId) continue;
@@ -32,16 +32,18 @@ function reportsInWindow(
     ) {
       continue;
     }
-    const previous = latestByReporter.get(report.reporterHash);
+    // reporterIpHash追加前の保存データは従来の投稿者ハッシュで集約する。
+    const reporterIpHash = report.reporterIpHash || report.reporterHash;
+    const previous = latestByIp.get(reporterIpHash);
     if (
       !previous ||
       Date.parse(previous.createdAt) < createdAt
     ) {
-      latestByReporter.set(report.reporterHash, report);
+      latestByIp.set(reporterIpHash, report);
     }
   }
 
-  return [...latestByReporter.values()];
+  return [...latestByIp.values()];
 }
 
 /**

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getRailwayCatalogLine } from "@/data/railwayCatalog";
 import { isAllowedPushEndpoint } from "@/lib/communityPush";
+import { isAllowedMutationOrigin } from "@/lib/requestOrigin";
 import {
   validatePushLineIds,
   validatePushSubscription,
@@ -14,6 +15,15 @@ import type {
 } from "@/types/push";
 
 export const dynamic = "force-dynamic";
+
+function trustedMutationOrigin(request: NextRequest): boolean {
+  return isAllowedMutationOrigin({
+    requestOrigin: request.nextUrl.origin,
+    originHeader: request.headers.get("origin"),
+    refererHeader: request.headers.get("referer"),
+    vercelUrl: process.env.VERCEL_URL,
+  });
+}
 
 function isLocalRequest(request: NextRequest): boolean {
   return /^(localhost|127\.0\.0\.1)$/.test(request.nextUrl.hostname);
@@ -28,6 +38,13 @@ function subscriptionId(endpoint: string): string {
 
 export async function POST(request: NextRequest) {
   try {
+    if (!trustedMutationOrigin(request)) {
+      return NextResponse.json(
+        { error: "この送信元からは通知設定を変更できません。" },
+        { status: 403 },
+      );
+    }
+
     let body: unknown;
     try {
       body = await request.json();
@@ -90,6 +107,13 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    if (!trustedMutationOrigin(request)) {
+      return NextResponse.json(
+        { error: "この送信元からは通知設定を変更できません。" },
+        { status: 403 },
+      );
+    }
+
     let body: unknown;
     try {
       body = await request.json();

@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import {
   aggregateCommunityReports,
@@ -8,11 +7,22 @@ import {
 } from "@/lib/communityReports";
 import { getRailwayCatalogLine } from "@/data/railwayCatalog";
 import { createLogger } from "@/lib/logger";
+import { isAllowedMutationOrigin } from "@/lib/requestOrigin";
 import {
   getCommunityReportStore,
   type CommunityReportStore,
 } from "@/server/communityReportStore";
+import {
+  claimIpRateLimit,
+  releaseIpRateLimit,
+  type IpRateLimitClaim,
+} from "@/server/ipRateLimiter";
 import { maybeSendSuspensionSpikeNotification } from "@/server/pushNotifier";
+import {
+  extractForwardedIp,
+  hashCommunityReporter,
+  hashReporterIp,
+} from "@/server/requestIdentity";
 import type {
   CommunityReportsApiResponse,
   CommunityReportSubmitResponse,
@@ -20,6 +30,30 @@ import type {
 
 export const dynamic = "force-dynamic";
 const log = createLogger("api.community-reports");
+
+const IP_LINE_RATE_LIMIT_SECONDS = 60;
+const IP_GLOBAL_RATE_LIMIT_SECONDS = 5 * 60;
+const IP_GLOBAL_RATE_LIMIT_COUNT = 10;
+
+function trustedMutationOrigin(request: NextRequest): boolean {
+  return isAllowedMutationOrigin({
+    requestOrigin: request.nextUrl.origin,
+    originHeader: request.headers.get("origin"),
+    refererHeader: request.headers.get("referer"),
+    vercelUrl: process.env.VERCEL_URL,
+  });
+}
+
+async function releaseIpClaims(
+  claims: readonly IpRateLimitClaim[],
+): Promise<void> {
+  const results = await Promise.allSettled(
+    claims.map((claim) => releaseIpRateLimit(claim)),
+  );
+  if (results.some((result) => result.status === "rejected")) {
+    log.error("投票失敗後のIPレート制限解放に失敗");
+  }
+}
 
 function isLocalRequest(request: NextRequest): boolean {
   return /^(localhost|127\.0\.0\.1)$/.test(request.nextUrl.hostname);
@@ -58,6 +92,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    if (!trustedMutationOrigin(request)) {
+      return NextResponse.json(
+        { error: "この送信元からは投票できません。" },
+        { status: 403 },
+      );
+    }
+
     const reporterId = request.headers.get("x-community-reporter") ?? "";
     if (!/^[A-Za-z0-9_-]{12,100}$/.test(reporterId)) {
       return NextResponse.json(
@@ -93,26 +134,69 @@ export async function POST(request: NextRequest) {
         { status: 503 },
       );
     }
-    const reporterHash = createHash("sha256")
-      .update(`train-live-map:v1:${reporterId}`)
-      .digest("hex")
-      .slice(0, 32);
-    const allowed = await store.claimRateLimit(
-      reporterHash,
-      vote.lineId,
+    const reporterHash = hashCommunityReporter(reporterId);
+    const reporterIpHash = hashReporterIp(
+      extractForwardedIp(request.headers.get("x-forwarded-for")),
     );
-    if (!allowed) {
+    const ipClaims: IpRateLimitClaim[] = [];
+    const lineIpClaim = await claimIpRateLimit({
+      scope: "community-report-line",
+      ipHash: reporterIpHash,
+      discriminator: vote.lineId,
+      limit: 1,
+      windowSeconds: IP_LINE_RATE_LIMIT_SECONDS,
+    });
+    if (!lineIpClaim.allowed) {
       return NextResponse.json(
         {
-          error: `同じ路線には${COMMUNITY_REPORT_COOLDOWN_SECONDS}秒後に再投票できます。`,
+          error: `同じ接続元からこの路線には${IP_LINE_RATE_LIMIT_SECONDS}秒後に再投票できます。`,
         },
         { status: 429 },
       );
     }
+    ipClaims.push(lineIpClaim);
 
+    const globalIpClaim = await claimIpRateLimit({
+      scope: "community-report-global",
+      ipHash: reporterIpHash,
+      limit: IP_GLOBAL_RATE_LIMIT_COUNT,
+      windowSeconds: IP_GLOBAL_RATE_LIMIT_SECONDS,
+    });
+    if (!globalIpClaim.allowed) {
+      await releaseIpClaims(ipClaims);
+      return NextResponse.json(
+        {
+          error: "投票回数が多いため、しばらく待ってから再投票してください。",
+        },
+        { status: 429 },
+      );
+    }
+    ipClaims.push(globalIpClaim);
+
+    let reporterClaimed = false;
     try {
+      const allowed = await store.claimRateLimit(
+        reporterHash,
+        vote.lineId,
+      );
+      if (!allowed) {
+        await releaseIpClaims(ipClaims);
+        return NextResponse.json(
+          {
+            error: `同じ路線には${COMMUNITY_REPORT_COOLDOWN_SECONDS}秒後に再投票できます。`,
+          },
+          { status: 429 },
+        );
+      }
+      reporterClaimed = true;
+
       const createdAt = new Date().toISOString();
-      await store.save({ ...vote, reporterHash, createdAt });
+      await store.save({
+        ...vote,
+        reporterHash,
+        reporterIpHash,
+        createdAt,
+      });
       if (vote.status === "suspended") {
         try {
           const activeReports = await store.listActive();
@@ -138,11 +222,14 @@ export async function POST(request: NextRequest) {
       };
       return NextResponse.json(response, { status: 201 });
     } catch (error) {
-      try {
-        await store.releaseRateLimit(reporterHash, vote.lineId);
-      } catch {
-        log.error("投票失敗後のクールダウン解放にも失敗");
+      if (reporterClaimed) {
+        try {
+          await store.releaseRateLimit(reporterHash, vote.lineId);
+        } catch {
+          log.error("投票失敗後のクールダウン解放にも失敗");
+        }
       }
+      await releaseIpClaims(ipClaims);
       throw error;
     }
   } catch {
