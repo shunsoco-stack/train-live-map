@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchServiceStatus, fetchTrains } from "@/lib/apiClient";
+import { InFlightRequestGate } from "@/lib/requestGate";
 import type { ProviderSource, ServiceStatus, TrainLocation } from "@/types/train";
 import { calculateServerClockOffsetMs } from "@/lib/time";
 
@@ -41,7 +42,15 @@ interface UseTrainDataResult extends TrainDataState {
  * - 運行情報: 初回 + 30 秒ごと
  * - 失敗しても直前のデータを保持し、画面が真っ白にならないようにする
  */
-export function useTrainData(): UseTrainDataResult {
+export function useTrainData(
+  visibleLineIds: ReadonlySet<string>,
+): UseTrainDataResult {
+  const requestedLineIds = useMemo(
+    () => [...visibleLineIds].sort(),
+    [visibleLineIds],
+  );
+  const trainRequestGate = useRef(new InFlightRequestGate());
+  const statusRequestGate = useRef(new InFlightRequestGate());
   const [state, setState] = useState<TrainDataState>({
     trains: [],
     serviceStatuses: [],
@@ -57,8 +66,10 @@ export function useTrainData(): UseTrainDataResult {
   });
 
   const loadTrains = useCallback(async (signal?: AbortSignal) => {
+    const token = trainRequestGate.current.begin();
+    if (!token) return;
     try {
-      const data = await fetchTrains(signal);
+      const data = await fetchTrains(requestedLineIds, signal);
       const nextClockOffsetMs = calculateServerClockOffsetMs(
         Date.now(),
         data.generatedAt,
@@ -87,10 +98,14 @@ export function useTrainData(): UseTrainDataResult {
             ? err.message
             : "列車情報の取得に失敗しました",
       }));
+    } finally {
+      trainRequestGate.current.release(token);
     }
-  }, []);
+  }, [requestedLineIds]);
 
   const loadServiceStatus = useCallback(async (signal?: AbortSignal) => {
+    const token = statusRequestGate.current.begin();
+    if (!token) return;
     try {
       const data = await fetchServiceStatus(signal);
       setState((prev) => ({
@@ -99,6 +114,8 @@ export function useTrainData(): UseTrainDataResult {
       }));
     } catch {
       // 運行情報の失敗は致命的でないため、静かに無視(既存表示を維持)
+    } finally {
+      statusRequestGate.current.release(token);
     }
   }, []);
 
@@ -110,6 +127,8 @@ export function useTrainData(): UseTrainDataResult {
   useEffect(() => {
     const controller = new AbortController();
     const { signal } = controller;
+    const trainGate = trainRequestGate.current;
+    const statusGate = statusRequestGate.current;
 
     // 初回取得
     void loadTrains(signal);
@@ -127,6 +146,8 @@ export function useTrainData(): UseTrainDataResult {
 
     return () => {
       controller.abort();
+      trainGate.reset();
+      statusGate.reset();
       clearInterval(trainTimer);
       clearInterval(statusTimer);
     };
