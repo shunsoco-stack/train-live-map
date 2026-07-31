@@ -5,6 +5,7 @@ import {
   fetchOdptTrainInformationForOperator,
   fetchOdptTrainsForOperator,
 } from "@/lib/odpt/api";
+import { serviceStatusWithTrainDelayFallback } from "@/lib/serviceStatus";
 import {
   odptInformationToServiceStatus,
   odptTrainsToNetworkTrainLocations,
@@ -55,27 +56,37 @@ export class OdptTrainLocationProvider implements TrainLocationProvider {
   }
 
   async getServiceStatuses(): Promise<ServiceStatus[]> {
-    const [{ data, durationMs }, network] = await Promise.all([
+    const [
+      { data: informationData, durationMs },
+      { data: trainData },
+      network,
+    ] = await Promise.all([
       fetchOdptTrainInformationForOperator(
         this.config.operator,
         this.config,
       ),
+      fetchOdptTrainsForOperator(this.config.operator, this.config),
       getOdptNetworkContext(this.config),
     ]);
+    const trains = odptTrainsToNetworkTrainLocations(trainData, network);
 
     const statuses = network.response.lines.map((line) => {
-      const information = data.filter(
+      const information = informationData.filter(
         (item) => item["odpt:railway"] === line.odptId,
       );
-      return odptInformationToServiceStatus(
-        information,
-        line.name,
-        line.id,
+      return serviceStatusWithTrainDelayFallback(
+        odptInformationToServiceStatus(
+          information,
+          line.name,
+          line.id,
+        ),
+        trains,
       );
     });
 
     this.log.info("全路線の運行情報を変換", {
-      raw: data.length,
+      raw: informationData.length,
+      trainRaw: trainData.length,
       mapped: statuses.length,
       disrupted: statuses.filter((item) => item.severity !== "normal")
         .length,

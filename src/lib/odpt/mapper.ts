@@ -11,6 +11,7 @@ import {
   isKawagoeSection,
   isSaikyoKawagoeRailway,
 } from "@/lib/odpt/saikyoKawagoe";
+import { classifyServiceStatusSeverity } from "@/lib/serviceStatus";
 import { getStationById, STATIONS } from "@/data/stations";
 import {
   coordinateBetweenStations,
@@ -332,14 +333,13 @@ export function odptInformationToServiceStatus(
   const statusText = pickJa(latest["odpt:trainInformationStatus"]).trim();
 
   const combined = `${statusText} ${text}`;
-  let severity: ServiceStatus["severity"] = "normal";
-  if (/見合わせ|運転を見合|中止|抑止/.test(combined)) {
-    severity = "major";
-  } else if (/遅れ|遅延|見合|直通運転を中止|一部|運転再開/.test(combined)) {
-    severity = "minor";
-  } else if (statusText && !/平常|通常/.test(statusText)) {
-    severity = "minor";
-  }
+  const classifiedSeverity = classifyServiceStatusSeverity(combined);
+  const severity =
+    classifiedSeverity === "normal" &&
+    statusText &&
+    !/平常|通常/.test(statusText)
+      ? "minor"
+      : classifiedSeverity;
 
   return {
     lineId,
