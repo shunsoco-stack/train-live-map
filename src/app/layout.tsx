@@ -10,22 +10,49 @@ import "./globals.css";
 const title = "Train Live Map｜JR東日本・関東版";
 const description =
   "JR東日本の関東エリアを走る在来線の列車位置と運行状況を地図上で確認できる非公式Webアプリ。";
+const PRODUCTION_ORIGIN = "https://train-live-map.vercel.app";
+
+function metadataOrigin(
+  host: string | null,
+  forwardedProtocol: string | null,
+): string {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (configured) {
+    try {
+      const url = new URL(configured);
+      if (url.protocol === "https:" && !url.username && !url.password) {
+        return url.origin;
+      }
+    } catch {
+      // Fall through to the canonical production origin.
+    }
+  }
+
+  if (
+    process.env.NODE_ENV !== "production" &&
+    host &&
+    /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host)
+  ) {
+    const protocol = forwardedProtocol === "https" ? "https" : "http";
+    return `${protocol}://${host}`;
+  }
+  return PRODUCTION_ORIGIN;
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-  const protocol =
-    requestHeaders.get("x-forwarded-proto") ??
-    (host?.startsWith("127.0.0.1") || host?.startsWith("localhost")
-      ? "http"
-      : "https");
-  const origin = host ? `${protocol}://${host}` : "http://127.0.0.1:3000";
+  const origin = metadataOrigin(
+    host,
+    requestHeaders.get("x-forwarded-proto"),
+  );
   const imageUrl = new URL(
     "/og-train-live-map-jr-east-kanto.png",
     origin,
   ).toString();
 
   return {
+    metadataBase: new URL(origin),
     title,
     description,
     applicationName: "Train Live Map｜JR東日本・関東版",

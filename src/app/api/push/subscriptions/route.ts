@@ -2,7 +2,19 @@ import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getRailwayCatalogLine } from "@/data/railwayCatalog";
 import { isAllowedPushEndpoint } from "@/lib/communityPush";
-import { getPushSubscriptionStore } from "@/server/pushSubscriptionStore";
+import {
+  getPushSubscriptionStore,
+  MAX_STORED_PUSH_SUBSCRIPTIONS,
+  PUSH_MUTATION_RATE_WINDOW_SECONDS,
+  type PushSubscriptionStore,
+} from "@/server/pushSubscriptionStore";
+import {
+  abusePreventionSecret,
+  clientAddress,
+  pseudonymousHash,
+  readLimitedJsonBody,
+  validateMutationRequest,
+} from "@/server/requestSecurity";
 import type {
   DeletePushSubscriptionRequest,
   SavePushSubscriptionRequest,
@@ -14,6 +26,18 @@ export const dynamic = "force-dynamic";
 
 const MAX_SUBSCRIBED_LINES = 20;
 const KEY_PATTERN = /^[A-Za-z0-9_-]{8,256}$/;
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
+
+function errorResponse(
+  message: string,
+  status: number,
+  headers: Record<string, string> = {},
+) {
+  return NextResponse.json(
+    { error: message },
+    { status, headers: { ...NO_STORE_HEADERS, ...headers } },
+  );
+}
 
 function isLocalRequest(request: NextRequest): boolean {
   return /^(localhost|127\.0\.0\.1)$/.test(request.nextUrl.hostname);
@@ -24,6 +48,15 @@ function subscriptionId(endpoint: string): string {
     .update(endpoint)
     .digest("hex")
     .slice(0, 32);
+}
+
+function decodedKeyLength(value: string): number | null {
+  if (!KEY_PATTERN.test(value)) return null;
+  try {
+    return Buffer.from(value, "base64url").byteLength;
+  } catch {
+    return null;
+  }
 }
 
 function validateSubscription(
@@ -39,21 +72,25 @@ function validateSubscription(
     typeof value.endpoint === "string" ? value.endpoint : "";
   const p256dh = typeof keys?.p256dh === "string" ? keys.p256dh : "";
   const auth = typeof keys?.auth === "string" ? keys.auth : "";
-  const expirationTime =
-    value.expirationTime === null ||
-    typeof value.expirationTime === "number"
-      ? value.expirationTime
-      : null;
+  const expirationTime = value.expirationTime;
 
   if (
     endpoint.length > 2048 ||
     !isAllowedPushEndpoint(endpoint) ||
-    !KEY_PATTERN.test(p256dh) ||
-    !KEY_PATTERN.test(auth)
+    decodedKeyLength(p256dh) !== 65 ||
+    decodedKeyLength(auth) !== 16 ||
+    (expirationTime !== null &&
+      (typeof expirationTime !== "number" ||
+        !Number.isFinite(expirationTime) ||
+        expirationTime < 0))
   ) {
     return null;
   }
-  return { endpoint, expirationTime, keys: { p256dh, auth } };
+  return {
+    endpoint,
+    expirationTime: expirationTime as number | null,
+    keys: { p256dh, auth },
+  };
 }
 
 function validateLineIds(input: unknown): string[] | null {
@@ -78,30 +115,62 @@ function validateLineIds(input: unknown): string[] | null {
   return lineIds;
 }
 
+async function mutationAllowed(
+  request: NextRequest,
+  store: PushSubscriptionStore,
+): Promise<boolean> {
+  const local = isLocalRequest(request);
+  const secret =
+    abusePreventionSecret() ??
+    (local ? "train-live-map-local-development-key-only" : null);
+  const address = clientAddress(request.headers) ?? (local ? "local" : null);
+  if (!secret || !address) return false;
+  const sourceHash = pseudonymousHash(
+    secret,
+    "push-mutation-source-v1",
+    address,
+  );
+  return store.claimMutationRateLimit(sourceHash);
+}
+
 export async function POST(request: NextRequest) {
   try {
+    const requestCheck = validateMutationRequest(request.headers, request.nextUrl);
+    if (!requestCheck.ok) {
+      return errorResponse(requestCheck.message, requestCheck.status);
+    }
+
     const store = getPushSubscriptionStore();
     if (!store.persistent && !isLocalRequest(request)) {
-      return NextResponse.json(
-        { error: "通知の保存先を準備中です。" },
-        { status: 503 },
+      return errorResponse("通知の保存先を準備中です。", 503);
+    }
+    if (!(await mutationAllowed(request, store))) {
+      return errorResponse(
+        "短時間の通知設定上限に達しました。少し時間をおいてください。",
+        429,
+        { "Retry-After": String(PUSH_MUTATION_RATE_WINDOW_SECONDS) },
       );
     }
-    const body = (await request.json()) as SavePushSubscriptionRequest;
-    const subscription = validateSubscription(body.subscription);
-    const lineIds = validateLineIds(body.lineIds);
+
+    const body = await readLimitedJsonBody(request);
+    if (!body.ok) return errorResponse(body.message, body.status);
+    const input =
+      body.value && typeof body.value === "object"
+        ? (body.value as Partial<SavePushSubscriptionRequest>)
+        : {};
+    const subscription = validateSubscription(input.subscription);
+    const lineIds = validateLineIds(input.lineIds);
     if (!subscription || !lineIds) {
-      return NextResponse.json(
-        { error: "通知設定を確認してください。" },
-        { status: 400 },
-      );
+      return errorResponse("通知設定を確認してください。", 400);
     }
 
     const id = subscriptionId(subscription.endpoint);
     const now = new Date().toISOString();
-    const existing = (await store.listActive())
-      .map((item) => item.record)
-      .find((item) => item.id === id);
+    const active = (await store.listActive()).map((item) => item.record);
+    const existing = active.find((item) => item.id === id);
+    if (!existing && active.length >= MAX_STORED_PUSH_SUBSCRIPTIONS) {
+      return errorResponse("通知登録数が上限に達しています。", 503);
+    }
     await store.upsert({
       id,
       subscription,
@@ -113,35 +182,48 @@ export async function POST(request: NextRequest) {
       subscribed: true,
       lineIds,
     };
-    return NextResponse.json(response);
+    return NextResponse.json(response, { headers: NO_STORE_HEADERS });
   } catch {
-    return NextResponse.json(
-      { error: "通知設定を保存できませんでした。" },
-      { status: 500 },
-    );
+    return errorResponse("通知設定を保存できませんでした。", 500);
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
-    const body = (await request.json()) as DeletePushSubscriptionRequest;
-    if (
-      typeof body.endpoint !== "string" ||
-      !isAllowedPushEndpoint(body.endpoint)
-    ) {
-      return NextResponse.json(
-        { error: "通知設定を確認してください。" },
-        { status: 400 },
+    const requestCheck = validateMutationRequest(request.headers, request.nextUrl);
+    if (!requestCheck.ok) {
+      return errorResponse(requestCheck.message, requestCheck.status);
+    }
+    const store = getPushSubscriptionStore();
+    if (!store.persistent && !isLocalRequest(request)) {
+      return errorResponse("通知の保存先を準備中です。", 503);
+    }
+    if (!(await mutationAllowed(request, store))) {
+      return errorResponse(
+        "短時間の通知設定上限に達しました。少し時間をおいてください。",
+        429,
+        { "Retry-After": String(PUSH_MUTATION_RATE_WINDOW_SECONDS) },
       );
     }
-    await getPushSubscriptionStore().removeById(
-      subscriptionId(body.endpoint),
-    );
-    return NextResponse.json({ subscribed: false });
-  } catch {
+
+    const body = await readLimitedJsonBody(request);
+    if (!body.ok) return errorResponse(body.message, body.status);
+    const input =
+      body.value && typeof body.value === "object"
+        ? (body.value as Partial<DeletePushSubscriptionRequest>)
+        : {};
+    if (
+      typeof input.endpoint !== "string" ||
+      !isAllowedPushEndpoint(input.endpoint)
+    ) {
+      return errorResponse("通知設定を確認してください。", 400);
+    }
+    await store.removeById(subscriptionId(input.endpoint));
     return NextResponse.json(
-      { error: "通知設定を解除できませんでした。" },
-      { status: 500 },
+      { subscribed: false },
+      { headers: NO_STORE_HEADERS },
     );
+  } catch {
+    return errorResponse("通知設定を解除できませんでした。", 500);
   }
 }

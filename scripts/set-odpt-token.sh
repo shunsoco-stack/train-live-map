@@ -29,28 +29,28 @@ echo "   2. ログイン後、アクセストークンを発行"
 echo "   3. 発行された文字列をこの下に貼り付け"
 echo
 
-# トークンを非表示で入力(引数で渡された場合はそれを使う)
-if [ "$#" -ge 1 ] && [ -n "${1:-}" ]; then
-  TOKEN="$1"
-else
-  printf 'ODPT アクセストークン: '
-  read -r -s TOKEN
-  echo
-fi
+# コマンド履歴やプロセス一覧に残さないため、引数では受け取らない。
+printf 'ODPT アクセストークン: '
+read -r -s TOKEN
+echo
 
 TOKEN="$(printf '%s' "$TOKEN" | tr -d '[:space:]')"
 [ -n "$TOKEN" ] || fail "トークンが入力されませんでした"
 
-# 既存の .env.local から ODPT_ACCESS_TOKEN 行だけを差し替える
+# 既存の .env.local から ODPT_ACCESS_TOKEN 行だけを差し替える。
+# Secretを含むバックアップをリポジトリ内へ残さない。
+TMP_FILE="$(mktemp "${TMPDIR:-/tmp}/train-live-map-env.XXXXXX")" || \
+  fail "一時ファイルを作成できません"
+trap 'rm -f "$TMP_FILE"' EXIT
+chmod 600 "$TMP_FILE"
+
 if [ -f "$ENV_FILE" ]; then
-  cp "$ENV_FILE" "$ENV_FILE.bak" || fail ".env.local のバックアップに失敗しました"
-  warn "既存の .env.local を .env.local.bak に退避しました"
-  grep -v '^ODPT_ACCESS_TOKEN=' "$ENV_FILE.bak" > "$ENV_FILE" || true
-else
-  : > "$ENV_FILE"
+  grep -v '^ODPT_ACCESS_TOKEN=' "$ENV_FILE" > "$TMP_FILE" || true
 fi
 
-printf 'ODPT_ACCESS_TOKEN=%s\n' "$TOKEN" >> "$ENV_FILE"
+printf 'ODPT_ACCESS_TOKEN=%s\n' "$TOKEN" >> "$TMP_FILE"
+mv "$TMP_FILE" "$ENV_FILE" || fail ".env.local を更新できません"
+trap - EXIT
 chmod 600 "$ENV_FILE"
 
 ok "トークンを .env.local に保存しました(権限 600 / git 管理外)"

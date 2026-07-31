@@ -14,10 +14,12 @@ function report(
   status: CommunityReportRecord["status"],
   ageMs: number,
   lineId = "tokaido",
+  sourceHash = reporterHash,
 ): CommunityReportRecord {
   return {
     lineId,
     reporterHash,
+    sourceHash,
     status,
     delayMinutes: null,
     createdAt: new Date(NOW - ageMs).toISOString(),
@@ -92,6 +94,20 @@ test("同じ投稿者の重複レコードは1票として扱う", () => {
       report("same", "suspended", 60_000),
       report("same", "suspended", 90_000),
       report("b", "suspended", 120_000),
+    ],
+    "tokaido",
+    NOW,
+  );
+  assert.equal(result.recentSuspended, 2);
+  assert.equal(result.detected, false);
+});
+
+test("端末IDを変えても同じ接続元は1票として扱う", () => {
+  const result = detectSuspensionSpike(
+    [
+      report("device-a", "suspended", 60_000, "tokaido", "source-a"),
+      report("device-b", "suspended", 90_000, "tokaido", "source-a"),
+      report("device-c", "suspended", 120_000, "tokaido", "source-b"),
     ],
     "tokaido",
     NOW,

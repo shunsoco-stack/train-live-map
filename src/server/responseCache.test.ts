@@ -1,0 +1,20 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { cachedResponse } from "./responseCache.ts";
+
+test("concurrent upstream requests are coalesced", async () => {
+  let calls = 0;
+  const loader = async () => {
+    calls += 1;
+    await Promise.resolve();
+    return { value: 42 };
+  };
+  const key = `test-coalescing-${crypto.randomUUID()}`;
+  const [first, second] = await Promise.all([
+    cachedResponse(key, 1_000, loader),
+    cachedResponse(key, 1_000, loader),
+  ]);
+  assert.equal(calls, 1);
+  assert.deepEqual(first, { value: 42 });
+  assert.deepEqual(second, first);
+});

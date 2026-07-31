@@ -63,20 +63,25 @@ export function aggregateCommunityReports(
   now = Date.now(),
 ): CommunityReportSummary[] {
   const cutoff = now - COMMUNITY_REPORT_WINDOW_MS;
-  const byLine = new Map<string, CommunityReportRecord[]>();
+  const byLine = new Map<string, Map<string, CommunityReportRecord>>();
 
   for (const report of reports) {
     const createdAt = Date.parse(report.createdAt);
     if (!Number.isFinite(createdAt) || createdAt < cutoff || createdAt > now) {
       continue;
     }
-    const group = byLine.get(report.lineId) ?? [];
-    group.push(report);
+    const group = byLine.get(report.lineId) ?? new Map();
+    const sourceIdentity = report.sourceHash ?? report.reporterHash;
+    const previous = group.get(sourceIdentity);
+    if (!previous || Date.parse(previous.createdAt) < createdAt) {
+      group.set(sourceIdentity, report);
+    }
     byLine.set(report.lineId, group);
   }
 
   return [...byLine.entries()]
-    .map(([lineId, lineReports]) => {
+    .map(([lineId, reportsBySource]) => {
+      const lineReports = [...reportsBySource.values()];
       const counts = {
         onTime: lineReports.filter((item) => item.status === "on-time")
           .length,

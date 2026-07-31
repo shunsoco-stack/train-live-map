@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   SUSPENSION_ALERT_COOLDOWN_SECONDS,
 } from "@/lib/communityPush";
@@ -11,6 +12,9 @@ import type { PushSubscriptionRecord } from "@/types/push";
 const SUBSCRIPTIONS_KEY = "train-live-map:push-subscriptions:v1";
 const SUBSCRIPTION_RETENTION_MS = 180 * 24 * 60 * 60 * 1000;
 const SUBSCRIPTION_TTL_SECONDS = 181 * 24 * 60 * 60;
+export const MAX_STORED_PUSH_SUBSCRIPTIONS = 10_000;
+export const PUSH_MUTATION_RATE_WINDOW_SECONDS = 10 * 60;
+export const PUSH_MUTATION_RATE_MAX_REQUESTS = 30;
 
 interface StoredSubscription {
   member: string;
@@ -26,6 +30,7 @@ export interface PushSubscriptionStore {
   ): Promise<void>;
   removeById(id: string): Promise<void>;
   claimLineAlert(lineId: string): Promise<boolean>;
+  claimMutationRateLimit(sourceHash: string, now?: number): Promise<boolean>;
 }
 
 function parseStoredSubscriptions(
@@ -85,6 +90,12 @@ class RedisPushSubscriptionStore implements PushSubscriptionStore {
       now - SUBSCRIPTION_RETENTION_MS,
     ]);
     await redisCommand<number>(this.config, [
+      "ZREMRANGEBYRANK",
+      SUBSCRIPTIONS_KEY,
+      0,
+      -(MAX_STORED_PUSH_SUBSCRIPTIONS + 1),
+    ]);
+    await redisCommand<number>(this.config, [
       "EXPIRE",
       SUBSCRIPTIONS_KEY,
       SUBSCRIPTION_TTL_SECONDS,
@@ -114,11 +125,40 @@ class RedisPushSubscriptionStore implements PushSubscriptionStore {
     ]);
     return result === "OK";
   }
+
+  async claimMutationRateLimit(
+    sourceHash: string,
+    now = Date.now(),
+  ): Promise<boolean> {
+    const key = `${SUBSCRIPTIONS_KEY}:mutation-rate:${sourceHash}`;
+    const cutoff = now - PUSH_MUTATION_RATE_WINDOW_SECONDS * 1000;
+    const script = [
+      "redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[1])",
+      "local count = redis.call('ZCARD', KEYS[1])",
+      "if count >= tonumber(ARGV[2]) then return 0 end",
+      "redis.call('ZADD', KEYS[1], ARGV[3], ARGV[4])",
+      "redis.call('EXPIRE', KEYS[1], ARGV[5])",
+      "return 1",
+    ].join("; ");
+    const allowed = await redisCommand<number>(this.config, [
+      "EVAL",
+      script,
+      1,
+      key,
+      cutoff,
+      PUSH_MUTATION_RATE_MAX_REQUESTS,
+      now,
+      `${now}:${randomUUID()}`,
+      PUSH_MUTATION_RATE_WINDOW_SECONDS + 5,
+    ]);
+    return allowed === 1;
+  }
 }
 
 interface MemoryState {
   subscriptions: StoredSubscription[];
   alertCooldowns: Map<string, number>;
+  mutationRateLimits: Map<string, number[]>;
 }
 
 const memoryGlobal = globalThis as typeof globalThis & {
@@ -130,6 +170,7 @@ function memoryState(): MemoryState {
     memoryGlobal.__trainLiveMapPushSubscriptions = {
       subscriptions: [],
       alertCooldowns: new Map(),
+      mutationRateLimits: new Map(),
     };
   }
   return memoryGlobal.__trainLiveMapPushSubscriptions;
@@ -155,6 +196,11 @@ class MemoryPushSubscriptionStore implements PushSubscriptionStore {
     const state = memoryState();
     const member = JSON.stringify(record);
     state.subscriptions.push({ member, record });
+    if (state.subscriptions.length > MAX_STORED_PUSH_SUBSCRIPTIONS) {
+      state.subscriptions = state.subscriptions.slice(
+        -MAX_STORED_PUSH_SUBSCRIPTIONS,
+      );
+    }
     await this.listActive(now);
   }
 
@@ -174,6 +220,24 @@ class MemoryPushSubscriptionStore implements PushSubscriptionStore {
       lineId,
       now + SUSPENSION_ALERT_COOLDOWN_SECONDS * 1000,
     );
+    return true;
+  }
+
+  async claimMutationRateLimit(
+    sourceHash: string,
+    now = Date.now(),
+  ): Promise<boolean> {
+    const state = memoryState();
+    const cutoff = now - PUSH_MUTATION_RATE_WINDOW_SECONDS * 1000;
+    const active = (state.mutationRateLimits.get(sourceHash) ?? []).filter(
+      (timestamp) => timestamp > cutoff,
+    );
+    if (active.length >= PUSH_MUTATION_RATE_MAX_REQUESTS) {
+      state.mutationRateLimits.set(sourceHash, active);
+      return false;
+    }
+    active.push(now);
+    state.mutationRateLimits.set(sourceHash, active);
     return true;
   }
 }

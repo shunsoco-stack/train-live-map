@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   COMMUNITY_REPORT_COOLDOWN_SECONDS,
   COMMUNITY_REPORT_WINDOW_MS,
@@ -11,6 +12,9 @@ import type { CommunityReportRecord } from "@/types/community";
 
 const REPORTS_KEY = "train-live-map:community-reports:v1";
 const REPORTS_TTL_SECONDS = 60 * 60;
+const MAX_STORED_REPORTS = 20_000;
+export const COMMUNITY_SOURCE_RATE_WINDOW_SECONDS = 5 * 60;
+export const COMMUNITY_SOURCE_RATE_MAX_REPORTS = 2;
 
 interface StoredReport {
   member: string;
@@ -24,6 +28,7 @@ export interface CommunityReportStore {
     reporterHash: string,
     lineId: string,
   ): Promise<boolean>;
+  claimSourceRateLimit(sourceHash: string, now?: number): Promise<boolean>;
   save(report: CommunityReportRecord, now?: number): Promise<void>;
 }
 
@@ -35,6 +40,8 @@ function parseStoredReports(members: readonly string[]): StoredReport[] {
         !record ||
         typeof record.lineId !== "string" ||
         typeof record.reporterHash !== "string" ||
+        (record.sourceHash !== undefined &&
+          typeof record.sourceHash !== "string") ||
         typeof record.createdAt !== "string"
       ) {
         return [];
@@ -77,6 +84,34 @@ class RedisCommunityReportStore implements CommunityReportStore {
     return result === "OK";
   }
 
+  async claimSourceRateLimit(
+    sourceHash: string,
+    now = Date.now(),
+  ): Promise<boolean> {
+    const key = `${REPORTS_KEY}:source-rate:${sourceHash}`;
+    const cutoff = now - COMMUNITY_SOURCE_RATE_WINDOW_SECONDS * 1000;
+    const script = [
+      "redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[1])",
+      "local count = redis.call('ZCARD', KEYS[1])",
+      "if count >= tonumber(ARGV[2]) then return 0 end",
+      "redis.call('ZADD', KEYS[1], ARGV[3], ARGV[4])",
+      "redis.call('EXPIRE', KEYS[1], ARGV[5])",
+      "return 1",
+    ].join("; ");
+    const allowed = await redisCommand<number>(this.config, [
+      "EVAL",
+      script,
+      1,
+      key,
+      cutoff,
+      COMMUNITY_SOURCE_RATE_MAX_REPORTS,
+      now,
+      `${now}:${randomUUID()}`,
+      COMMUNITY_SOURCE_RATE_WINDOW_SECONDS + 5,
+    ]);
+    return allowed === 1;
+  }
+
   async save(
     report: CommunityReportRecord,
     now = Date.now(),
@@ -111,6 +146,12 @@ class RedisCommunityReportStore implements CommunityReportStore {
       now - COMMUNITY_REPORT_WINDOW_MS,
     ]);
     await redisCommand<number>(this.config, [
+      "ZREMRANGEBYRANK",
+      REPORTS_KEY,
+      0,
+      -(MAX_STORED_REPORTS + 1),
+    ]);
+    await redisCommand<number>(this.config, [
       "EXPIRE",
       REPORTS_KEY,
       REPORTS_TTL_SECONDS,
@@ -121,6 +162,7 @@ class RedisCommunityReportStore implements CommunityReportStore {
 interface MemoryState {
   reports: StoredReport[];
   rateLimits: Map<string, number>;
+  sourceRateLimits: Map<string, number[]>;
 }
 
 const memoryGlobal = globalThis as typeof globalThis & {
@@ -132,6 +174,7 @@ function memoryState(): MemoryState {
     memoryGlobal.__trainLiveMapCommunityReports = {
       reports: [],
       rateLimits: new Map(),
+      sourceRateLimits: new Map(),
     };
   }
   return memoryGlobal.__trainLiveMapCommunityReports;
@@ -165,6 +208,24 @@ class MemoryCommunityReportStore implements CommunityReportStore {
     return true;
   }
 
+  async claimSourceRateLimit(
+    sourceHash: string,
+    now = Date.now(),
+  ): Promise<boolean> {
+    const state = memoryState();
+    const cutoff = now - COMMUNITY_SOURCE_RATE_WINDOW_SECONDS * 1000;
+    const active = (state.sourceRateLimits.get(sourceHash) ?? []).filter(
+      (timestamp) => timestamp > cutoff,
+    );
+    if (active.length >= COMMUNITY_SOURCE_RATE_MAX_REPORTS) {
+      state.sourceRateLimits.set(sourceHash, active);
+      return false;
+    }
+    active.push(now);
+    state.sourceRateLimits.set(sourceHash, active);
+    return true;
+  }
+
   async save(
     report: CommunityReportRecord,
     now = Date.now(),
@@ -180,6 +241,9 @@ class MemoryCommunityReportStore implements CommunityReportStore {
     );
     const member = JSON.stringify(report);
     state.reports.push({ member, record: report });
+    if (state.reports.length > MAX_STORED_REPORTS) {
+      state.reports = state.reports.slice(-MAX_STORED_REPORTS);
+    }
   }
 }
 

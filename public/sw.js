@@ -40,10 +40,18 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = new URL(
-    event.notification.data?.url || "/",
-    self.location.origin,
-  ).href;
+  let targetUrl = `${self.location.origin}/`;
+  try {
+    const candidate = new URL(
+      event.notification.data?.url || "/",
+      self.location.origin,
+    );
+    if (candidate.origin === self.location.origin) {
+      targetUrl = candidate.href;
+    }
+  } catch {
+    // Keep the same-origin fallback for malformed notification payloads.
+  }
 
   event.waitUntil(
     self.clients

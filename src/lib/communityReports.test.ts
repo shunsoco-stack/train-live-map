@@ -15,10 +15,12 @@ function report(
   status: CommunityReportRecord["status"],
   delayMinutes: number | null = null,
   createdAt = new Date(NOW - 60_000).toISOString(),
+  sourceHash = reporterHash,
 ): CommunityReportRecord {
   return {
     lineId,
     reporterHash,
+    sourceHash,
     status,
     delayMinutes,
     createdAt,
@@ -127,4 +129,21 @@ test("路線ごとに独立して集計する", () => {
       ["yamanote", "delayed"],
     ],
   );
+});
+
+test("端末IDを変えても同じ接続元の投票は重複集計しない", () => {
+  const summaries = aggregateCommunityReports(
+    [
+      report("tokaido", "device-a", "suspended", null, undefined, "source-a"),
+      report("tokaido", "device-b", "suspended", null, undefined, "source-a"),
+      report("tokaido", "device-c", "on-time", null, undefined, "source-b"),
+    ],
+    NOW,
+  );
+  assert.equal(summaries[0].voteCount, 2);
+  assert.deepEqual(summaries[0].counts, {
+    onTime: 1,
+    delayed: 0,
+    suspended: 1,
+  });
 });

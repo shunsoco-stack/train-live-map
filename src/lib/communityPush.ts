@@ -32,12 +32,13 @@ function reportsInWindow(
     ) {
       continue;
     }
-    const previous = latestByReporter.get(report.reporterHash);
+    const sourceIdentity = report.sourceHash ?? report.reporterHash;
+    const previous = latestByReporter.get(sourceIdentity);
     if (
       !previous ||
       Date.parse(previous.createdAt) < createdAt
     ) {
-      latestByReporter.set(report.reporterHash, report);
+      latestByReporter.set(sourceIdentity, report);
     }
   }
 

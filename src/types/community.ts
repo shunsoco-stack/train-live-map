@@ -11,6 +11,8 @@ export interface CommunityReportVote {
 
 export interface CommunityReportRecord extends CommunityReportVote {
   reporterHash: string;
+  /** HMAC pseudonym for abuse controls; absent only on legacy records. */
+  sourceHash?: string;
   createdAt: string;
 }
 
