@@ -43,6 +43,7 @@ interface TrainMotionState {
 // 詳細画面の速度値や、駅間を越えない制限には影響しない。
 const ESTIMATED_MOTION_SPEED_MULTIPLIER = 3;
 const ROUTE_LABEL_PIXEL_RATIO = 2;
+const STATION_ICON_PIXEL_RATIO = 2;
 
 function routeLabelText(name: string): string {
   return name.replace(/[（(][^）)]*[）)]/g, "").trim();
@@ -100,6 +101,98 @@ function createRouteLabelImage(name: string, lineColor: string): ImageData {
   context.fillText(name, width / 2, height / 2 + ROUTE_LABEL_PIXEL_RATIO / 2);
 
   return context.getImageData(0, 0, width, height);
+}
+
+/**
+ * 路線カラーの屋根と、丸い窓・入口を持つ小さな駅舎イラスト。
+ * 画像ファイルを増やさず、高DPI端末でも輪郭がぼやけないCanvas画像にする。
+ */
+function createStationIconImage(lineColor: string): ImageData {
+  const width = 44;
+  const height = 48;
+  const canvas = document.createElement("canvas");
+  canvas.width = width * STATION_ICON_PIXEL_RATIO;
+  canvas.height = height * STATION_ICON_PIXEL_RATIO;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("駅イラスト用のCanvasを初期化できませんでした。");
+  }
+  context.scale(STATION_ICON_PIXEL_RATIO, STATION_ICON_PIXEL_RATIO);
+  context.lineJoin = "round";
+  context.lineCap = "round";
+
+  context.shadowColor = "rgba(36, 23, 13, 0.28)";
+  context.shadowBlur = 3;
+  context.shadowOffsetY = 2;
+  context.beginPath();
+  context.moveTo(5, 18);
+  context.lineTo(22, 5);
+  context.lineTo(39, 18);
+  context.closePath();
+  context.fillStyle = lineColor;
+  context.fill();
+  context.lineWidth = 2.2;
+  context.strokeStyle = "#493b38";
+  context.stroke();
+
+  context.beginPath();
+  context.roundRect(8, 16, 28, 27, 4);
+  context.fillStyle = "#fffaf0";
+  context.fill();
+  context.stroke();
+  context.shadowColor = "transparent";
+
+  context.beginPath();
+  context.arc(22, 14.5, 4.2, 0, Math.PI * 2);
+  context.fillStyle = "#fffdf9";
+  context.fill();
+  context.lineWidth = 1.4;
+  context.strokeStyle = "#493b38";
+  context.stroke();
+  context.beginPath();
+  context.moveTo(22, 14.5);
+  context.lineTo(22, 11.8);
+  context.moveTo(22, 14.5);
+  context.lineTo(24.2, 15.7);
+  context.lineWidth = 1.1;
+  context.stroke();
+
+  context.fillStyle = "#bde9f5";
+  context.strokeStyle = "#493b38";
+  context.lineWidth = 1.2;
+  context.beginPath();
+  context.roundRect(11.5, 23, 7, 7, 2);
+  context.fill();
+  context.stroke();
+  context.beginPath();
+  context.roundRect(25.5, 23, 7, 7, 2);
+  context.fill();
+  context.stroke();
+
+  context.beginPath();
+  context.roundRect(18, 30, 8, 13, 2.5);
+  context.fillStyle = lineColor;
+  context.fill();
+  context.stroke();
+  context.beginPath();
+  context.roundRect(19.7, 31.8, 4.6, 5.2, 1.3);
+  context.fillStyle = "#dff5fb";
+  context.fill();
+
+  context.beginPath();
+  context.moveTo(5.5, 43);
+  context.lineTo(38.5, 43);
+  context.lineWidth = 3;
+  context.strokeStyle = "#493b38";
+  context.stroke();
+  context.beginPath();
+  context.moveTo(8, 46);
+  context.lineTo(36, 46);
+  context.lineWidth = 2.2;
+  context.strokeStyle = lineColor;
+  context.stroke();
+
+  return context.getImageData(0, 0, canvas.width, canvas.height);
 }
 
 /**
@@ -171,13 +264,18 @@ export default function TrainMapInner({
     if (!map || !mapReady) return;
 
     const activeSourceIds = new Set<string>();
+    const activeStationSourceIds = new Set<string>();
     for (const line of railwayLines) {
       const sourceId = `railway-route-${line.id}`;
       const casingId = `${sourceId}-casing`;
       const lineId = `${sourceId}-line`;
       const labelId = `${sourceId}-label`;
       const labelImageId = `${sourceId}-label-image`;
+      const stationSourceId = `railway-stations-${line.id}`;
+      const stationLayerId = `${stationSourceId}-symbols`;
+      const stationImageId = `${stationSourceId}-image`;
       activeSourceIds.add(sourceId);
+      activeStationSourceIds.add(stationSourceId);
 
       const data = {
         type: "Feature" as const,
@@ -262,6 +360,68 @@ export default function TrainMapInner({
         });
       }
 
+      const stationData = {
+        type: "FeatureCollection" as const,
+        features: line.stations.map((station) => ({
+          type: "Feature" as const,
+          properties: {
+            id: station.id,
+            name: station.name,
+            lineName: line.name,
+          },
+          geometry: {
+            type: "Point" as const,
+            coordinates: station.position,
+          },
+        })),
+      };
+      const stationSource = map.getSource(stationSourceId) as
+        | maplibregl.GeoJSONSource
+        | undefined;
+      if (stationSource) {
+        stationSource.setData(stationData);
+      } else {
+        map.addSource(stationSourceId, {
+          type: "geojson",
+          data: stationData,
+        });
+      }
+      if (!map.hasImage(stationImageId)) {
+        map.addImage(
+          stationImageId,
+          createStationIconImage(line.color),
+          { pixelRatio: STATION_ICON_PIXEL_RATIO },
+        );
+      }
+      if (!map.getLayer(stationLayerId)) {
+        map.addLayer({
+          id: stationLayerId,
+          type: "symbol",
+          source: stationSourceId,
+          minzoom: 7,
+          layout: {
+            "icon-image": stationImageId,
+            "icon-size": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              7,
+              0.5,
+              9,
+              0.72,
+              11,
+              0.88,
+              14,
+              1.04,
+            ],
+            "icon-anchor": "bottom",
+            "icon-padding": 5,
+            "icon-allow-overlap": false,
+            "icon-ignore-placement": false,
+          },
+        });
+      }
+
       const visibility = visibleLineIds.has(line.id) ? "visible" : "none";
       if (map.getLayer(casingId)) {
         map.setLayoutProperty(casingId, "visibility", visibility);
@@ -272,6 +432,9 @@ export default function TrainMapInner({
       }
       if (map.getLayer(labelId)) {
         map.setLayoutProperty(labelId, "visibility", visibility);
+      }
+      if (map.getLayer(stationLayerId)) {
+        map.setLayoutProperty(stationLayerId, "visibility", visibility);
       }
     }
 
@@ -292,6 +455,19 @@ export default function TrainMapInner({
       if (map.getLayer(casingId)) map.removeLayer(casingId);
       if (map.getSource(sourceId)) map.removeSource(sourceId);
       if (map.hasImage(labelImageId)) map.removeImage(labelImageId);
+    }
+    for (const sourceId of Object.keys(style.sources ?? {})) {
+      if (
+        !sourceId.startsWith("railway-stations-") ||
+        activeStationSourceIds.has(sourceId)
+      ) {
+        continue;
+      }
+      const layerId = `${sourceId}-symbols`;
+      const imageId = `${sourceId}-image`;
+      if (map.getLayer(layerId)) map.removeLayer(layerId);
+      if (map.getSource(sourceId)) map.removeSource(sourceId);
+      if (map.hasImage(imageId)) map.removeImage(imageId);
     }
   }, [mapReady, railwayLines, visibleLineIds]);
 

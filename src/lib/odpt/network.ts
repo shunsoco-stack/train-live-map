@@ -1,4 +1,5 @@
 import { ROUTE_COORDINATES_RAW } from "@/data/routeLine";
+import { STATIONS } from "@/data/stations";
 import {
   findRailwayCatalogLine,
   getRailwayCatalogLine,
@@ -15,6 +16,7 @@ import type { LngLat } from "@/types/geo";
 import type {
   RailwaysApiResponse,
   RailwayMapLine,
+  RailwayMapStation,
 } from "@/types/railway";
 
 const CACHE_MS = 6 * 60 * 60 * 1000;
@@ -132,6 +134,21 @@ function fallbackPathFromStations(
   return path.length >= 2 ? [simplifyPath(path)] : [];
 }
 
+function stationsForRailway(
+  railway: OdptRailway,
+  stationByOdptId: ReadonlyMap<string, OdptStationLookup>,
+): RailwayMapStation[] {
+  const stations = [...(railway["odpt:stationOrder"] ?? [])]
+    .sort((a, b) => (a["odpt:index"] ?? 0) - (b["odpt:index"] ?? 0))
+    .map((station) => station["odpt:station"])
+    .filter((id): id is string => Boolean(id))
+    .map((id) => stationByOdptId.get(id))
+    .filter((station): station is OdptStationLookup => Boolean(station))
+    .map(({ id, name, position }) => ({ id, name, position }));
+
+  return [...new Map(stations.map((station) => [station.id, station])).values()];
+}
+
 function isKawagoeSection([longitude, latitude]: LngLat): boolean {
   return longitude < 139.62 && latitude > 35.87;
 }
@@ -170,6 +187,11 @@ function fallbackContext(): OdptNetworkContext {
     name: catalog.name,
     color: catalog.color,
     coordinates: [ROUTE_COORDINATES_RAW],
+    stations: STATIONS.map((station) => ({
+      id: `fallback-${station.id}`,
+      name: station.name,
+      position: [station.longitude, station.latitude],
+    })),
   };
   const availableIds = new Set([line.id]);
 
@@ -217,6 +239,7 @@ async function loadNetwork(config: OdptConfig): Promise<OdptNetworkContext> {
       paths.length > 0
         ? paths
         : fallbackPathFromStations(railway, stationByOdptId);
+    const railwayStations = stationsForRailway(railway, stationByOdptId);
     const isCombinedSaikyoKawagoe = railwayId.endsWith(".Kawagoe");
     const catalogs = isCombinedSaikyoKawagoe
       ? ["saikyo", "kawagoe"]
@@ -241,10 +264,25 @@ async function loadNetwork(config: OdptConfig): Promise<OdptNetworkContext> {
       const lineCoordinates =
         clippedCoordinates.length > 0 ? clippedCoordinates : coordinates;
       if (lineCoordinates.length === 0) continue;
+      const lineStations = isCombinedSaikyoKawagoe
+        ? railwayStations.filter((station) =>
+            catalog.id === "kawagoe"
+              ? isKawagoeSection(station.position)
+              : !isKawagoeSection(station.position),
+          )
+        : railwayStations;
 
       const existing = lineByCatalogId.get(catalog.id);
       if (existing) {
         existing.coordinates.push(...lineCoordinates);
+        existing.stations = [
+          ...new Map(
+            [...existing.stations, ...lineStations].map((station) => [
+              station.id,
+              station,
+            ]),
+          ).values(),
+        ];
         continue;
       }
 
@@ -254,6 +292,7 @@ async function loadNetwork(config: OdptConfig): Promise<OdptNetworkContext> {
         name: catalog.name,
         color: railway["odpt:color"] || catalog.color,
         coordinates: lineCoordinates,
+        stations: lineStations,
       });
     }
   }

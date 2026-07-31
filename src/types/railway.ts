@@ -13,12 +13,19 @@ export interface RailwayCatalogLine {
   kind: "line" | "service";
 }
 
+export interface RailwayMapStation {
+  id: string;
+  name: string;
+  position: LngLat;
+}
+
 export interface RailwayMapLine {
   id: string;
   odptId: string;
   name: string;
   color: string;
   coordinates: LngLat[][];
+  stations: RailwayMapStation[];
 }
 
 export interface RailwayFilterOption extends RailwayCatalogLine {
@@ -31,4 +38,3 @@ export interface RailwaysApiResponse {
   generatedAt: string;
   source: "odpt" | "fallback";
 }
-

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { RAILWAY_CATALOG, railwayFilterOptions } from "@/data/railwayCatalog";
 import { ROUTE_COORDINATES_RAW } from "@/data/routeLine";
+import { STATIONS } from "@/data/stations";
 import { fetchRailways } from "@/lib/apiClient";
 import type {
   RailwayFilterOption,
@@ -15,6 +16,11 @@ const fallbackLine: RailwayMapLine = {
   name: "東海道線",
   color: "#f68b1e",
   coordinates: [ROUTE_COORDINATES_RAW],
+  stations: STATIONS.map((station) => ({
+    id: `fallback-${station.id}`,
+    name: station.name,
+    position: [station.longitude, station.latitude],
+  })),
 };
 
 interface RailwayNetworkState {
@@ -54,4 +60,3 @@ export function useRailwayNetwork(): RailwayNetworkState {
 }
 
 export const ALL_RAILWAY_IDS = RAILWAY_CATALOG.map((line) => line.id);
-

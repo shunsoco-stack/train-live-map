@@ -15,6 +15,7 @@ const lines: RailwayMapLine[] = [
         [139.62, 35.47],
       ],
     ],
+    stations: [],
   },
   {
     id: "far-away",
@@ -27,6 +28,7 @@ const lines: RailwayMapLine[] = [
         [145, 45],
       ],
     ],
+    stations: [],
   },
 ];
 
