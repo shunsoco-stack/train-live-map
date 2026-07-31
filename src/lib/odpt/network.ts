@@ -11,6 +11,11 @@ import {
   isOdptConfigured,
   type OdptConfig,
 } from "@/lib/odpt/config";
+import {
+  isSaikyoKawagoeRailway,
+  splitSaikyoKawagoePaths,
+  splitSaikyoKawagoeStations,
+} from "@/lib/odpt/saikyoKawagoe";
 import type { OdptRailway, OdptStation } from "@/lib/odpt/types";
 import type { LngLat } from "@/types/geo";
 import type {
@@ -149,34 +154,6 @@ function stationsForRailway(
   return [...new Map(stations.map((station) => [station.id, station])).values()];
 }
 
-function isKawagoeSection([longitude, latitude]: LngLat): boolean {
-  return longitude < 139.62 && latitude > 35.87;
-}
-
-function clipKawagoePaths(
-  paths: LngLat[][],
-  section: "saikyo" | "kawagoe",
-): LngLat[][] {
-  return paths
-    .map((path) => {
-      const selected = path
-        .map((position, index) => ({
-          index,
-          matches:
-            section === "kawagoe"
-              ? isKawagoeSection(position)
-              : !isKawagoeSection(position),
-        }))
-        .filter((entry) => entry.matches)
-        .map((entry) => entry.index);
-      if (selected.length === 0) return [];
-      const start = Math.max(0, Math.min(...selected) - 1);
-      const end = Math.min(path.length - 1, Math.max(...selected) + 1);
-      return path.slice(start, end + 1);
-    })
-    .filter((path) => path.length >= 2);
-}
-
 function fallbackContext(): OdptNetworkContext {
   const catalog = getRailwayCatalogLine("tokaido");
   if (!catalog) throw new Error("東海道線の定義が見つかりません");
@@ -240,7 +217,8 @@ async function loadNetwork(config: OdptConfig): Promise<OdptNetworkContext> {
         ? paths
         : fallbackPathFromStations(railway, stationByOdptId);
     const railwayStations = stationsForRailway(railway, stationByOdptId);
-    const isCombinedSaikyoKawagoe = railwayId.endsWith(".Kawagoe");
+    const isCombinedSaikyoKawagoe =
+      isSaikyoKawagoeRailway(railwayId);
     const catalogs = isCombinedSaikyoKawagoe
       ? ["saikyo", "kawagoe"]
           .map((id) => getRailwayCatalogLine(id))
@@ -255,20 +233,20 @@ async function loadNetwork(config: OdptConfig): Promise<OdptNetworkContext> {
     for (const catalog of catalogs) {
       availableIds.add(catalog.id);
       const clippedCoordinates = isCombinedSaikyoKawagoe
-        ? clipKawagoePaths(
+        ? splitSaikyoKawagoePaths(
             coordinates,
             catalog.id === "kawagoe" ? "kawagoe" : "saikyo",
           )
         : coordinates;
-      // 提供される線形の点順によって分割できない場合も、選択自体は可能にする。
       const lineCoordinates =
-        clippedCoordinates.length > 0 ? clippedCoordinates : coordinates;
+        isCombinedSaikyoKawagoe
+          ? clippedCoordinates
+          : coordinates;
       if (lineCoordinates.length === 0) continue;
       const lineStations = isCombinedSaikyoKawagoe
-        ? railwayStations.filter((station) =>
-            catalog.id === "kawagoe"
-              ? isKawagoeSection(station.position)
-              : !isKawagoeSection(station.position),
+        ? splitSaikyoKawagoeStations(
+            railwayStations,
+            catalog.id === "kawagoe" ? "kawagoe" : "saikyo",
           )
         : railwayStations;
 
