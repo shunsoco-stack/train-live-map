@@ -1,28 +1,28 @@
-import { ROUTE_COORDINATES_RAW } from "@/data/routeLine";
-import { STATIONS } from "@/data/stations";
+import { ROUTE_COORDINATES_RAW } from "../../data/routeLine.ts";
+import { STATIONS } from "../../data/stations.ts";
 import {
   findRailwayCatalogLine,
   getRailwayCatalogLine,
   railwayFilterOptions,
-} from "@/data/railwayCatalog";
-import { fetchOdptRailways, fetchOdptStations } from "@/lib/odpt/api";
+} from "../../data/railwayCatalog.ts";
+import { fetchOdptRailways, fetchOdptStations } from "./api.ts";
 import {
   getOdptConfig,
   isOdptConfigured,
   type OdptConfig,
-} from "@/lib/odpt/config";
+} from "./config.ts";
 import {
   isSaikyoKawagoeRailway,
   splitSaikyoKawagoePaths,
   splitSaikyoKawagoeStations,
-} from "@/lib/odpt/saikyoKawagoe";
-import type { OdptRailway, OdptStation } from "@/lib/odpt/types";
-import type { LngLat } from "@/types/geo";
+} from "./saikyoKawagoe.ts";
+import type { OdptRailway, OdptStation } from "./types.ts";
+import type { LngLat } from "../../types/geo.ts";
 import type {
   RailwaysApiResponse,
   RailwayMapLine,
   RailwayMapStation,
-} from "@/types/railway";
+} from "../../types/railway.ts";
 
 const CACHE_MS = 6 * 60 * 60 * 1000;
 const MAX_POINTS_PER_PATH = 240;
@@ -185,14 +185,13 @@ function fallbackContext(): OdptNetworkContext {
   };
 }
 
-async function loadNetwork(config: OdptConfig): Promise<OdptNetworkContext> {
-  const [railwayResult, stationResult] = await Promise.all([
-    fetchOdptRailways(config.operator, config),
-    fetchOdptStations(config.operator, config),
-  ]);
-
+/** ODPTレスポンスをUI非依存の路線ネットワークへ変換する純粋関数。 */
+export function buildOdptNetworkContext(
+  railways: readonly OdptRailway[],
+  stations: readonly OdptStation[],
+): OdptNetworkContext {
   const stationByOdptId = new Map<string, OdptStationLookup>();
-  for (const station of stationResult.data) {
+  for (const station of stations) {
     const lookup = stationLookup(station);
     if (lookup) stationByOdptId.set(lookup.id, lookup);
   }
@@ -201,7 +200,7 @@ async function loadNetwork(config: OdptConfig): Promise<OdptNetworkContext> {
   const lineByCatalogId = new Map<string, RailwayMapLine>();
   const availableIds = new Set<string>();
 
-  for (const railway of railwayResult.data) {
+  for (const railway of railways) {
     const railwayId = odptId(railway);
     if (!railwayId) continue;
     const title = pickLocalized(
@@ -295,6 +294,14 @@ async function loadNetwork(config: OdptConfig): Promise<OdptNetworkContext> {
     catalogIdByOdptRailwayId,
     lineByCatalogId,
   };
+}
+
+async function loadNetwork(config: OdptConfig): Promise<OdptNetworkContext> {
+  const [railwayResult, stationResult] = await Promise.all([
+    fetchOdptRailways(config.operator, config),
+    fetchOdptStations(config.operator, config),
+  ]);
+  return buildOdptNetworkContext(railwayResult.data, stationResult.data);
 }
 
 export async function getOdptNetworkContext(

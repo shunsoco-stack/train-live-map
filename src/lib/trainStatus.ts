@@ -1,5 +1,5 @@
-import type { DataAccuracy, TrainLocation, TrainStatus, TrainType } from "@/types/train";
-import { elapsedSeconds } from "@/lib/time";
+import type { DataAccuracy, TrainLocation, TrainStatus, TrainType } from "../types/train.ts";
+import { elapsedSeconds } from "./time.ts";
 
 /**
  * 列車の見た目(色・ラベル・重要度)を決めるためのロジック。
@@ -91,6 +91,31 @@ export const TRAIN_FILTERS: { key: TrainFilterKey; label: string }[] = [
   { key: "delayed", label: "遅延" },
   { key: "suspended", label: "運転見合わせ" },
 ];
+
+/** 1回の走査でフィルター別件数を集計する。遅延は走行中とも重複し得る。 */
+export function countTrainsByFilter(
+  trains: readonly TrainLocation[],
+  now: Date = new Date(),
+): Record<TrainFilterKey, number> {
+  const counts: Record<TrainFilterKey, number> = {
+    all: 0,
+    running: 0,
+    stopped: 0,
+    delayed: 0,
+    suspended: 0,
+  };
+  for (const train of trains) {
+    counts.all += 1;
+    const level = resolveStatusLevel(train, now);
+    if (level === "running") counts.running += 1;
+    if (level === "warn" || level === "danger") counts.stopped += 1;
+    if (train.delayMinutes > 0 && train.status !== "suspended") {
+      counts.delayed += 1;
+    }
+    if (level === "suspended") counts.suspended += 1;
+  }
+  return counts;
+}
 
 /** 凡例UIが状態定義を二重管理しないための表示用データ。 */
 export const TRAIN_STATUS_LEGEND = (

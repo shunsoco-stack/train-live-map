@@ -40,8 +40,9 @@ export function validateCommunityReportVote(
   }
 
   if (status === "delayed") {
-    const delayMinutes = Number(value.delayMinutes);
+    const delayMinutes = value.delayMinutes;
     if (
+      typeof delayMinutes !== "number" ||
       !Number.isInteger(delayMinutes) ||
       delayMinutes < 1 ||
       delayMinutes > 120

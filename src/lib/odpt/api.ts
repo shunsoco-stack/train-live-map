@@ -1,11 +1,11 @@
-import { getOdptConfig, isOdptConfigured, type OdptConfig } from "@/lib/odpt/config";
+import { getOdptConfig, isOdptConfigured, type OdptConfig } from "./config.ts";
 import type {
   OdptRailway,
   OdptStation,
   OdptTrain,
   OdptTrainInformation,
-} from "@/lib/odpt/types";
-import { createLogger } from "@/lib/logger";
+} from "./types.ts";
+import { createLogger } from "../logger.ts";
 
 /**
  * ODPT API クライアント。
@@ -19,13 +19,18 @@ const log = createLogger("odpt.api");
 
 /** ODPT 呼び出しで投げるエラー(HTTP / タイムアウト / 解析) */
 export class OdptApiError extends Error {
+  public readonly kind: "http" | "timeout" | "parse" | "config" | "network";
+  public readonly status?: number;
+
   constructor(
     message: string,
-    public readonly kind: "http" | "timeout" | "parse" | "config" | "network",
-    public readonly status?: number,
+    kind: "http" | "timeout" | "parse" | "config" | "network",
+    status?: number,
   ) {
     super(message);
     this.name = "OdptApiError";
+    this.kind = kind;
+    this.status = status;
   }
 }
 

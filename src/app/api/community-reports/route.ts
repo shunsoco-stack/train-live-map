@@ -3,9 +3,8 @@ import {
   aggregateCommunityReports,
   COMMUNITY_REPORT_COOLDOWN_SECONDS,
   COMMUNITY_REPORT_WINDOW_MS,
-  validateCommunityReportVote,
 } from "@/lib/communityReports";
-import { getRailwayCatalogLine } from "@/data/railwayCatalog";
+import { validateCommunityReportSubmission } from "@/lib/communityReportSubmission";
 import {
   COMMUNITY_COMMON_LINE_RATE_WINDOW_SECONDS,
   COMMUNITY_IP_LINE_RATE_WINDOW_SECONDS,
@@ -94,13 +93,11 @@ export async function POST(request: NextRequest) {
     const body = await readLimitedJsonBody(request);
     if (!body.ok) return errorResponse(body.message, body.status);
 
-    const vote = validateCommunityReportVote(body.value);
-    const catalogLine = vote
-      ? getRailwayCatalogLine(vote.lineId)
-      : undefined;
-    if (!vote || !catalogLine || catalogLine.coverage === "unavailable") {
+    const submission = validateCommunityReportSubmission(body.value);
+    if (!submission) {
       return errorResponse("投票内容を確認してください。", 400);
     }
+    const { vote, catalogLine } = submission;
 
     const secret = abusePreventionSecret();
     const address = clientAddress(request.headers);

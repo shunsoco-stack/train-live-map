@@ -3,21 +3,21 @@ import type {
   ServiceStatus,
   TrainLocation,
   TrainType,
-} from "@/types/train";
-import type { OdptTrain, OdptTrainInformation } from "@/lib/odpt/types";
-import type { OdptNetworkContext } from "@/lib/odpt/network";
-import { getRailwayCatalogLine } from "@/data/railwayCatalog";
+} from "../../types/train.ts";
+import type { OdptTrain, OdptTrainInformation } from "./types.ts";
+import type { OdptNetworkContext } from "./network.ts";
+import { getRailwayCatalogLine } from "../../data/railwayCatalog.ts";
 import {
   isKawagoeSection,
   isSaikyoKawagoeRailway,
-} from "@/lib/odpt/saikyoKawagoe";
-import { classifyServiceStatusSeverity } from "@/lib/serviceStatus";
-import { getStationById, STATIONS } from "@/data/stations";
+} from "./saikyoKawagoe.ts";
+import { classifyServiceStatusSeverity } from "../serviceStatus.ts";
+import { getStationById, STATIONS } from "../../data/stations.ts";
 import {
   coordinateBetweenStations,
   stationFractionById,
-} from "@/lib/routeGeometry";
-import { inferTokaidoDirection } from "@/lib/odpt/direction";
+} from "../routeGeometry.ts";
+import { inferTokaidoDirection } from "./direction.ts";
 
 /**
  * ODPT のレスポンスを、UI が扱うドメイン型(TrainLocation / ServiceStatus)へ変換する。

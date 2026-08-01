@@ -1,10 +1,10 @@
-import type { LngLat } from "@/types/geo";
-import { ROUTE_COORDINATES_RAW } from "@/data/routeLine";
+import type { LngLat } from "../types/geo.ts";
+import { ROUTE_COORDINATES_RAW } from "../data/routeLine.ts";
 import {
   buildPolylineIndex,
   positionAtFraction,
   type PolylineIndex,
-} from "@/lib/geo";
+} from "./geo.ts";
 
 /**
  * 路線ジオメトリの共通ユーティリティ。

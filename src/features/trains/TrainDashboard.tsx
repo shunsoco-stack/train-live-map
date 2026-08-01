@@ -23,8 +23,8 @@ import { useTrainData } from "@/features/trains/useTrainData";
 import { useNow } from "@/lib/useNow";
 import { serviceStatusesForVisibleLines } from "@/lib/serviceStatus";
 import {
+  countTrainsByFilter,
   matchesFilter,
-  resolveStatusLevel,
   type TrainFilterKey,
 } from "@/lib/trainStatus";
 
@@ -134,24 +134,7 @@ export function TrainDashboard() {
   );
 
   const counts = useMemo(() => {
-    const result: Record<TrainFilterKey, number> = {
-      all: 0,
-      running: 0,
-      stopped: 0,
-      delayed: 0,
-      suspended: 0,
-    };
-    for (const train of trainsOnVisibleLines) {
-      result.all += 1;
-      const level = resolveStatusLevel(train, now);
-      if (level === "running") result.running += 1;
-      if (level === "warn" || level === "danger") result.stopped += 1;
-      if (train.delayMinutes > 0 && train.status !== "suspended") {
-        result.delayed += 1;
-      }
-      if (level === "suspended") result.suspended += 1;
-    }
-    return result;
+    return countTrainsByFilter(trainsOnVisibleLines, now);
   }, [trainsOnVisibleLines, now]);
 
   const filteredTrains = useMemo(
