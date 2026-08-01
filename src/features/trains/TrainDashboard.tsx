@@ -20,7 +20,7 @@ import { useNow } from "@/lib/useNow";
 import { serviceStatusesForVisibleLines } from "@/lib/serviceStatus";
 import {
   matchesFilter,
-  TRAIN_FILTERS,
+  resolveStatusLevel,
   type TrainFilterKey,
 } from "@/lib/trainStatus";
 
@@ -55,7 +55,7 @@ export function TrainDashboard() {
     options: railwayOptions,
     loading: railwayLoading,
   } = useRailwayNetwork();
-  const now = useNow(1000);
+  const now = useNow(10_000);
 
   const [filter, setFilter] = useState<TrainFilterKey>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -126,11 +126,22 @@ export function TrainDashboard() {
   );
 
   const counts = useMemo(() => {
-    const result = {} as Record<TrainFilterKey, number>;
-    for (const f of TRAIN_FILTERS) {
-      result[f.key] = trainsOnVisibleLines.filter((t) =>
-        matchesFilter(t, f.key, now),
-      ).length;
+    const result: Record<TrainFilterKey, number> = {
+      all: 0,
+      running: 0,
+      stopped: 0,
+      delayed: 0,
+      suspended: 0,
+    };
+    for (const train of trainsOnVisibleLines) {
+      result.all += 1;
+      const level = resolveStatusLevel(train, now);
+      if (level === "running") result.running += 1;
+      if (level === "warn" || level === "danger") result.stopped += 1;
+      if (train.delayMinutes > 0 && train.status !== "suspended") {
+        result.delayed += 1;
+      }
+      if (level === "suspended") result.suspended += 1;
     }
     return result;
   }, [trainsOnVisibleLines, now]);

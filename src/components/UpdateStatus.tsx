@@ -2,8 +2,6 @@
 
 import { RefreshCw } from "lucide-react";
 import { formatTimeJa } from "@/lib/time";
-import { useNow } from "@/lib/useNow";
-import { REFRESH_MS } from "@/features/trains/useTrainData";
 
 interface UpdateStatusProps {
   /** クライアントが API の取得に成功した時刻。次回更新表示に使用。 */
@@ -17,20 +15,8 @@ interface UpdateStatusProps {
  * 1 秒ごとにカウントダウンを更新。
  */
 export function UpdateStatus({
-  lastUpdatedAt,
   dataUpdatedAt,
 }: UpdateStatusProps) {
-  const now = useNow(1000);
-
-  const nextInSec = lastUpdatedAt
-    ? Math.max(
-        0,
-        Math.ceil(
-          (lastUpdatedAt.getTime() + REFRESH_MS - now.getTime()) / 1000,
-        ),
-      )
-    : null;
-
   return (
     <div
       className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium tracking-[0.01em] text-rail-muted"
@@ -43,15 +29,6 @@ export function UpdateStatus({
         <time className="tabular-nums text-rail-text">
           {dataUpdatedAt ? formatTimeJa(null, dataUpdatedAt) : "--:--:--"}
         </time>
-      </span>
-      <span className="hidden min-[390px]:inline" aria-hidden>
-        /
-      </span>
-      <span className="hidden min-[390px]:inline">
-        次回更新まで{" "}
-        <span className="tabular-nums text-rail-text">
-          {nextInSec === null ? "--" : `${nextInSec}秒`}
-        </span>
       </span>
     </div>
   );

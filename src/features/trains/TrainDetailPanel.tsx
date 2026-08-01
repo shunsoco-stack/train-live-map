@@ -32,7 +32,7 @@ interface TrainDetailPanelProps {
  * スマホでは画面下から開くボトムシート風に表示する。
  */
 export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
-  const now = useNow(1000);
+  const now = useNow(10_000);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const trainId = train?.id ?? null;
 

@@ -261,6 +261,9 @@ export default function TrainMapInner({
   const [mapReady, setMapReady] = useState(false);
   const trainMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
   const trainMotionRef = useRef<Map<string, TrainMotionState>>(new Map());
+  const routeSourceIdsRef = useRef<Set<string>>(new Set());
+  const stationSourceIdsRef = useRef<Set<string>>(new Set());
+  const stationImageIdsRef = useRef<Set<string>>(new Set());
   // 最新の onSelect を参照するための ref(マーカー生成時のクロージャ固定を回避)
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
@@ -303,6 +306,9 @@ export default function TrainMapInner({
       setMapReady(false);
       trainMarkers.clear();
       trainMotions.clear();
+      routeSourceIdsRef.current.clear();
+      stationSourceIdsRef.current.clear();
+      stationImageIdsRef.current.clear();
     };
   }, []);
 
@@ -343,7 +349,7 @@ export default function TrainMapInner({
         map.addSource(sourceId, { type: "geojson", data });
       }
 
-      if (!map.hasImage(labelImageId)) {
+      if (visibleLineIds.has(line.id) && !map.hasImage(labelImageId)) {
         const image = createRouteLabelImage(routeLabelText(line.name), line.color);
         if (image) {
           map.addImage(labelImageId, image, { pixelRatio: ROUTE_LABEL_PIXEL_RATIO });
@@ -489,14 +495,8 @@ export default function TrainMapInner({
       }
     }
 
-    const style = map.getStyle();
-    for (const sourceId of Object.keys(style.sources ?? {})) {
-      if (
-        !sourceId.startsWith("railway-route-") ||
-        activeSourceIds.has(sourceId)
-      ) {
-        continue;
-      }
+    for (const sourceId of routeSourceIdsRef.current) {
+      if (activeSourceIds.has(sourceId)) continue;
       const casingId = `${sourceId}-casing`;
       const lineId = `${sourceId}-line`;
       const labelId = `${sourceId}-label`;
@@ -507,25 +507,20 @@ export default function TrainMapInner({
       if (map.getSource(sourceId)) map.removeSource(sourceId);
       if (map.hasImage(labelImageId)) map.removeImage(labelImageId);
     }
-    for (const sourceId of Object.keys(style.sources ?? {})) {
-      if (
-        !sourceId.startsWith("railway-stations-") ||
-        activeStationSourceIds.has(sourceId)
-      ) {
-        continue;
-      }
+    for (const sourceId of stationSourceIdsRef.current) {
+      if (activeStationSourceIds.has(sourceId)) continue;
       const layerId = `${sourceId}-symbols`;
       if (map.getLayer(layerId)) map.removeLayer(layerId);
       if (map.getSource(sourceId)) map.removeSource(sourceId);
     }
-    for (const imageId of map.listImages()) {
-      if (
-        imageId.startsWith("railway-stations-") &&
-        !activeStationImageIds.has(imageId)
-      ) {
+    for (const imageId of stationImageIdsRef.current) {
+      if (!activeStationImageIds.has(imageId) && map.hasImage(imageId)) {
         map.removeImage(imageId);
       }
     }
+    routeSourceIdsRef.current = activeSourceIds;
+    stationSourceIdsRef.current = activeStationSourceIds;
+    stationImageIdsRef.current = activeStationImageIds;
   }, [mapReady, railwayLines, visibleLineIds]);
 
   // --- 選択路線が画面の主役になるよう、表示範囲を自動調整 ---
@@ -802,7 +797,22 @@ interface TrainStyleArgs {
   selected: boolean;
 }
 
+const trainStyleCache = new WeakMap<HTMLElement, string>();
+
 function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
+  const styleKey = JSON.stringify([
+    args.color,
+    args.ring,
+    args.symbol,
+    args.label,
+    args.lineColor,
+    args.direction,
+    args.face,
+    args.delayMinutes,
+    args.selected,
+  ]);
+  if (trainStyleCache.get(el) === styleKey) return;
+
   el.setAttribute(
     "aria-label",
     args.delayMinutes > 0
@@ -850,4 +860,5 @@ function styleTrainElement(el: HTMLElement, args: TrainStyleArgs): void {
     badge.style.borderColor = args.color;
     badge.style.color = "#ffffff";
   }
+  trainStyleCache.set(el, styleKey);
 }
