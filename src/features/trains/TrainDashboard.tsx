@@ -110,10 +110,14 @@ export function TrainDashboard() {
 
   useEffect(() => {
     if (!railwaySelectionReady.current) return;
-    window.localStorage.setItem(
-      VISIBLE_LINES_STORAGE_KEY,
-      JSON.stringify([...visibleLineIds]),
-    );
+    try {
+      window.localStorage.setItem(
+        VISIBLE_LINES_STORAGE_KEY,
+        JSON.stringify([...visibleLineIds]),
+      );
+    } catch {
+      // Storage拒否時も現在のタブでは選択状態を維持する。
+    }
   }, [visibleLineIds]);
 
   const trainsOnVisibleLines = useMemo(

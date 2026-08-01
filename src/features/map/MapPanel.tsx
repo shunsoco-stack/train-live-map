@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Loader2 } from "lucide-react";
+import { MapErrorBoundary } from "@/features/map/MapErrorBoundary";
 import type { TrainLocation } from "@/types/train";
 import type { RailwayMapLine } from "@/types/railway";
 
@@ -36,8 +37,8 @@ interface MapPanelProps {
 
 export function MapPanel(props: MapPanelProps) {
   return (
-    <div className="absolute inset-0">
+    <MapErrorBoundary>
       <TrainMapInner {...props} />
-    </div>
+    </MapErrorBoundary>
   );
 }

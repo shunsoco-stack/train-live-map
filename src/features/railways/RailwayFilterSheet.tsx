@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { defaultVisibleRailwayIds } from "@/data/railwayCatalog";
+import { safeWriteStorage } from "@/lib/browserGuidance";
 import type { RailwayFilterOption } from "@/types/railway";
 
 const FAVORITE_LINES_STORAGE_KEY = "train-live-map:favorite-lines";
@@ -60,7 +61,7 @@ export function RailwayFilterSheet({
 
   useEffect(() => {
     if (!favoritesLoaded) return;
-    window.localStorage.setItem(
+    safeWriteStorage(window.localStorage,
       FAVORITE_LINES_STORAGE_KEY,
       JSON.stringify([...favoriteIds]),
     );

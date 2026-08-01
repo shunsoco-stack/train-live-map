@@ -53,7 +53,7 @@ function routeLabelText(name: string): string {
  * ラスタ地図スタイルはglyphsを持たないため、路線名をCanvasで画像化する。
  * MapLibreのsymbolレイヤーに載せることで、線路に沿った回転・重なり回避が効く。
  */
-function createRouteLabelImage(name: string, lineColor: string): ImageData {
+function drawRouteLabelImage(name: string, lineColor: string): ImageData {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
   if (!context) {
@@ -103,6 +103,14 @@ function createRouteLabelImage(name: string, lineColor: string): ImageData {
   return context.getImageData(0, 0, width, height);
 }
 
+function createRouteLabelImage(name: string, lineColor: string): ImageData | null {
+  try {
+    return drawRouteLabelImage(name, lineColor);
+  } catch {
+    return null;
+  }
+}
+
 function stationLabelText(name: string): string {
   const trimmed = name.trim();
   return trimmed.endsWith("駅") ? trimmed : `${trimmed}駅`;
@@ -112,7 +120,7 @@ function stationLabelText(name: string): string {
  * 三角屋根を使わず、時計・ホーム屋根・改札を備えた駅舎として描く。
  * 駅名も同じ画像に収めることで、glyphsを持たないラスタ地図でも日本語を表示できる。
  */
-function createStationIconImage(name: string, lineColor: string): ImageData {
+function drawStationIconImage(name: string, lineColor: string): ImageData {
   const label = stationLabelText(name);
   const height = 56;
   const canvas = document.createElement("canvas");
@@ -227,6 +235,14 @@ function createStationIconImage(name: string, lineColor: string): ImageData {
   return context.getImageData(0, 0, canvas.width, canvas.height);
 }
 
+function createStationIconImage(name: string, lineColor: string): ImageData | null {
+  try {
+    return drawStationIconImage(name, lineColor);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * MapLibre GL による地図描画コンポーネント。
  * SSR では読み込まれない(dynamic import + ssr:false)前提のクライアント専用。
@@ -328,11 +344,10 @@ export default function TrainMapInner({
       }
 
       if (!map.hasImage(labelImageId)) {
-        map.addImage(
-          labelImageId,
-          createRouteLabelImage(routeLabelText(line.name), line.color),
-          { pixelRatio: ROUTE_LABEL_PIXEL_RATIO },
-        );
+        const image = createRouteLabelImage(routeLabelText(line.name), line.color);
+        if (image) {
+          map.addImage(labelImageId, image, { pixelRatio: ROUTE_LABEL_PIXEL_RATIO });
+        }
       }
 
       if (!map.getLayer(casingId)) {
@@ -361,7 +376,7 @@ export default function TrainMapInner({
           },
         });
       }
-      if (!map.getLayer(labelId)) {
+      if (!map.getLayer(labelId) && map.hasImage(labelImageId)) {
         map.addLayer({
           id: labelId,
           type: "symbol",
@@ -398,11 +413,10 @@ export default function TrainMapInner({
           const iconId = `${stationSourceId}-image-${index}`;
           activeStationImageIds.add(iconId);
           if (visibleLineIds.has(line.id) && !map.hasImage(iconId)) {
-            map.addImage(
-              iconId,
-              createStationIconImage(station.name, line.color),
-              { pixelRatio: STATION_ICON_PIXEL_RATIO },
-            );
+            const image = createStationIconImage(station.name, line.color);
+            if (image) {
+              map.addImage(iconId, image, { pixelRatio: STATION_ICON_PIXEL_RATIO });
+            }
           }
           return {
             type: "Feature" as const,
