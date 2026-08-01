@@ -166,18 +166,20 @@ export async function POST(request: NextRequest) {
 
     const id = subscriptionId(subscription.endpoint);
     const now = new Date().toISOString();
-    const active = (await store.listActive()).map((item) => item.record);
-    const existing = active.find((item) => item.id === id);
-    if (!existing && active.length >= MAX_STORED_PUSH_SUBSCRIPTIONS) {
-      return errorResponse("通知登録数が上限に達しています。", 503);
-    }
-    await store.upsert({
+    const existing = await store.getById(id);
+    const saved = await store.upsert({
       id,
       subscription,
       lineIds,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     });
+    if (!saved) {
+      return errorResponse(
+        `通知登録数が${MAX_STORED_PUSH_SUBSCRIPTIONS.toLocaleString()}件の上限に達しています。`,
+        503,
+      );
+    }
     const response: SavePushSubscriptionResponse = {
       subscribed: true,
       lineIds,
