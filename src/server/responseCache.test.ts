@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cachedResponse } from "./responseCache.ts";
+import { cachedResponse, sharedCacheHeaders } from "./responseCache.ts";
 
 test("concurrent upstream requests are coalesced", async () => {
   let calls = 0;
@@ -17,4 +17,10 @@ test("concurrent upstream requests are coalesced", async () => {
   assert.equal(calls, 1);
   assert.deepEqual(first, { value: 42 });
   assert.deepEqual(second, first);
+});
+
+test("shared cache header keeps five seconds and ten seconds stale window", () => {
+  assert.deepEqual(sharedCacheHeaders(5, 10), {
+    "Cache-Control": "public, s-maxage=5, stale-while-revalidate=10",
+  });
 });

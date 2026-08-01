@@ -52,6 +52,6 @@ export function sharedCacheHeaders(
   staleWhileRevalidateSeconds: number,
 ): Record<string, string> {
   return {
-    "Cache-Control": `public, max-age=0, s-maxage=${maxAgeSeconds}, stale-while-revalidate=${staleWhileRevalidateSeconds}`,
+    "Cache-Control": `public, s-maxage=${maxAgeSeconds}, stale-while-revalidate=${staleWhileRevalidateSeconds}`,
   };
 }

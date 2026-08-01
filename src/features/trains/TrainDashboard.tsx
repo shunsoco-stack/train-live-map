@@ -34,6 +34,10 @@ const SELECTION_DEFAULT_VERSION = "2";
  * データ取得・状態管理・レイアウトを担う。
  */
 export function TrainDashboard() {
+  const [visibleLineIds, setVisibleLineIds] = useState<Set<string>>(
+    () => new Set(["tokaido"]),
+  );
+  const railwaySelectionReady = useRef(false);
   const {
     trains,
     serviceStatuses,
@@ -45,7 +49,7 @@ export function TrainDashboard() {
     lastUpdatedAt,
     dataUpdatedAt,
     refresh,
-  } = useTrainData();
+  } = useTrainData(visibleLineIds);
   const {
     lines: railwayLines,
     options: railwayOptions,
@@ -55,10 +59,6 @@ export function TrainDashboard() {
 
   const [filter, setFilter] = useState<TrainFilterKey>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [visibleLineIds, setVisibleLineIds] = useState<Set<string>>(
-    () => new Set(["tokaido"]),
-  );
-  const railwaySelectionReady = useRef(false);
 
   useEffect(() => {
     if (railwayLoading || railwaySelectionReady.current) return;

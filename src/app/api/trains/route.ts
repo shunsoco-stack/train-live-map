@@ -1,23 +1,42 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { trainLocationService } from "@/services/trainLocationService";
 import type { TrainsApiResponse } from "@/types/train";
 import { createLogger } from "@/lib/logger";
 import { cachedResponse, sharedCacheHeaders } from "@/server/responseCache";
+import { getRailwayCatalogLine } from "@/data/railwayCatalog";
+import {
+  parseRequestedLineIds,
+  trainsForRequestedLines,
+} from "@/lib/trainApiPayload";
 
 // 常に最新の位置を返すためキャッシュしない
 export const dynamic = "force-dynamic";
 
 const log = createLogger("api.trains");
-const CACHE_HEADERS = sharedCacheHeaders(5, 15);
+const CACHE_HEADERS = sharedCacheHeaders(5, 10);
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const start = Date.now();
   try {
-    const { trains, isMock, source, fallback, notice } = await cachedResponse(
-      "api:trains:v1",
+    const requested = parseRequestedLineIds(request.nextUrl.searchParams.get("lines"));
+    if (
+      !requested.ok ||
+      (requested.lineIds !== null &&
+        [...requested.lineIds].some((lineId) => !getRailwayCatalogLine(lineId)))
+    ) {
+      return NextResponse.json(
+        { error: "路線指定を確認してください" },
+        { status: 400, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+
+    const result = await cachedResponse(
+      "api:trains:v2",
       5_000,
       () => trainLocationService.getTrains(),
     );
+    const { isMock, source, fallback, notice } = result;
+    const trains = trainsForRequestedLines(result.trains, requested.lineIds);
     const generatedAt = new Date().toISOString();
     const latestTrainTimestamp = trains.reduce<string | null>((latest, train) => {
       const timestamp = Date.parse(train.lastUpdatedAt);

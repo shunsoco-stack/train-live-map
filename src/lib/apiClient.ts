@@ -28,14 +28,25 @@ async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   return (await res.json()) as T;
 }
 
-export function fetchTrains(signal?: AbortSignal): Promise<TrainsApiResponse> {
-  return getJson<TrainsApiResponse>("/api/trains", signal);
+function lineFilteredUrl(path: string, lineKey: string): string {
+  return `${path}?${new URLSearchParams({ lines: lineKey }).toString()}`;
+}
+
+export function fetchTrains(
+  lineKey: string,
+  signal?: AbortSignal,
+): Promise<TrainsApiResponse> {
+  return getJson<TrainsApiResponse>(lineFilteredUrl("/api/trains", lineKey), signal);
 }
 
 export function fetchServiceStatus(
+  lineKey: string,
   signal?: AbortSignal,
 ): Promise<ServiceStatusApiResponse> {
-  return getJson<ServiceStatusApiResponse>("/api/service-status", signal);
+  return getJson<ServiceStatusApiResponse>(
+    lineFilteredUrl("/api/service-status", lineKey),
+    signal,
+  );
 }
 
 export function fetchRailways(

@@ -38,7 +38,8 @@ interface UseTrainDataResult extends TrainDataState {
  * - 運行情報: 初回 + 30 秒ごと
  * - 失敗しても直前のデータを保持し、画面が真っ白にならないようにする
  */
-export function useTrainData(): UseTrainDataResult {
+export function useTrainData(visibleLineIds: ReadonlySet<string>): UseTrainDataResult {
+  const lineKey = [...visibleLineIds].sort().join(",");
   const [state, setState] = useState<TrainDataState>({
     trains: [],
     serviceStatuses: [],
@@ -54,7 +55,7 @@ export function useTrainData(): UseTrainDataResult {
 
   const loadTrains = useCallback(async (signal?: AbortSignal) => {
     try {
-      const data = await fetchTrains(signal);
+      const data = await fetchTrains(lineKey, signal);
       setState((prev) => ({
         ...prev,
         trains: data.trains,
@@ -78,11 +79,11 @@ export function useTrainData(): UseTrainDataResult {
             : "列車情報の取得に失敗しました",
       }));
     }
-  }, []);
+  }, [lineKey]);
 
   const loadServiceStatus = useCallback(async (signal?: AbortSignal) => {
     try {
-      const data = await fetchServiceStatus(signal);
+      const data = await fetchServiceStatus(lineKey, signal);
       setState((prev) => ({
         ...prev,
         serviceStatuses: data.serviceStatuses ?? [data.serviceStatus],
@@ -90,7 +91,7 @@ export function useTrainData(): UseTrainDataResult {
     } catch {
       // 運行情報の失敗は致命的でないため、静かに無視(既存表示を維持)
     }
-  }, []);
+  }, [lineKey]);
 
   const refresh = useCallback(() => {
     void loadTrains();
