@@ -17,6 +17,8 @@ import { TrainDetailPanel } from "@/features/trains/TrainDetailPanel";
 import { TrainFilterBar } from "@/features/trains/TrainFilterBar";
 import { LegendSheet } from "@/features/trains/LegendSheet";
 import { TrainSearch } from "@/features/trains/TrainSearch";
+import { EstimatedMotionHint } from "@/features/trains/EstimatedMotionHint";
+import { MapEmptyState } from "@/features/trains/MapEmptyState";
 import { useTrainData } from "@/features/trains/useTrainData";
 import { useNow } from "@/lib/useNow";
 import { serviceStatusesForVisibleLines } from "@/lib/serviceStatus";
@@ -62,6 +64,7 @@ export function TrainDashboard() {
   const [filter, setFilter] = useState<TrainFilterKey>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [legendOpen, setLegendOpen] = useState(false);
+  const [railwayFilterOpenRequest, setRailwayFilterOpenRequest] = useState(0);
 
   useEffect(() => {
     if (railwayLoading || railwaySelectionReady.current) return;
@@ -168,6 +171,16 @@ export function TrainDashboard() {
     [trains, selectedId],
   );
 
+  const emptyState = !loading
+    ? visibleLineIds.size === 0
+      ? "no-lines"
+      : trainsOnVisibleLines.length === 0
+        ? "no-trains"
+        : filteredTrains.length === 0
+          ? "no-filter-results"
+          : null
+    : null;
+
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-rail-bg">
       <AppHeader
@@ -193,6 +206,7 @@ export function TrainDashboard() {
           visibleIds={visibleLineIds}
           onChange={setVisibleLineIds}
           loading={railwayLoading}
+          openRequest={railwayFilterOpenRequest}
         />
 
         <CommunityReportSheet
@@ -211,9 +225,19 @@ export function TrainDashboard() {
             ))}
           </div>
           <DataSourceNotice notice={notice} fallback={fallback} />
-          {error && <ErrorNotice message={error} onRetry={refresh} />}
+          {!emptyState && error && <ErrorNotice message={error} onRetry={refresh} />}
           <TrainSearch trains={trainsOnVisibleLines} onSelect={setSelectedId} />
         </div>
+
+        {emptyState && (
+          <MapEmptyState
+            kind={emptyState}
+            onChooseLines={() => setRailwayFilterOpenRequest((value) => value + 1)}
+            onResetFilter={() => setFilter("all")}
+            onRetry={refresh}
+          />
+        )}
+        {!loading && <EstimatedMotionHint />}
 
         {/* 下部オーバーレイ: フィルター */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2 p-3 safe-bottom">

@@ -66,11 +66,7 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
       role="dialog"
       aria-modal="true"
       aria-label={`${train.lineName} ${train.destination}行の詳細`}
-      aria-describedby={
-        train.dataAccuracy !== "actual"
-          ? "train-detail-accuracy-note"
-          : undefined
-      }
+      aria-describedby="train-detail-accuracy-note"
     >
       {/* 背景 */}
       <button
@@ -191,14 +187,12 @@ export function TrainDetailPanel({ train, onClose }: TrainDetailPanelProps) {
         </dl>
 
         {/* 注意書き */}
-        {train.dataAccuracy !== "actual" && (
-          <p
-            id="train-detail-accuracy-note"
-            className="border-t border-rail-border px-4 py-3 text-[11px] leading-relaxed text-rail-muted"
-          >
-            ※ 位置情報はモックまたは駅間情報からの推定です。実際の列車位置とは異なる場合があります。
-          </p>
-        )}
+        <p
+          id="train-detail-accuracy-note"
+          className="border-t border-rail-border px-4 py-3 text-[11px] leading-relaxed text-rail-muted"
+        >
+          ※ アイコンの位置と動きはGPS実測ではなく、駅間情報をもとにした推定です。実際の列車位置とは異なる場合があります。
+        </p>
       </div>
     </div>
   );

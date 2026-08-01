@@ -21,6 +21,7 @@ interface RailwayFilterSheetProps {
   visibleIds: ReadonlySet<string>;
   onChange: (ids: Set<string>) => void;
   loading: boolean;
+  openRequest?: number;
 }
 
 export function RailwayFilterSheet({
@@ -28,12 +29,17 @@ export function RailwayFilterSheet({
   visibleIds,
   onChange,
   loading,
+  openRequest = 0,
 }: RailwayFilterSheetProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [favoritesLoaded, setFavoritesLoaded] = useState(false);
+
+  useEffect(() => {
+    if (openRequest > 0) setOpen(true);
+  }, [openRequest]);
 
   useEffect(() => {
     try {
