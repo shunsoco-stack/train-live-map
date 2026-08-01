@@ -16,8 +16,8 @@ body {
   background-color: #1a1008;
   color: #fff7ed;
   font-family:
-    "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", -apple-system,
-    BlinkMacSystemFont, "Segoe UI", "Yu Gothic UI", "Noto Sans JP", sans-serif;
+    "Hiragino Maru Gothic ProN", "Yu Gothic UI", ui-rounded, system-ui,
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans JP", sans-serif;
   font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
   /* iPhone Safari のアドレスバー変動に強い高さ指定の補助 */

@@ -11,7 +11,6 @@
     "test": "node --test src/data/railwayCatalog.test.ts src/lib/browserGuidance.test.ts src/lib/communityPush.test.ts src/lib/communityRateLimit.test.ts src/lib/communityReports.test.ts src/lib/mapViewport.test.ts src/lib/odpt/direction.test.ts src/lib/odpt/saikyoKawagoe.test.ts src/lib/pushSubscriptionRegistry.test.ts src/lib/serviceStatus.test.ts src/lib/trainApiPayload.test.ts src/lib/trainMotion.test.ts src/server/requestSecurity.test.ts src/server/responseCache.test.ts"
   },
   "dependencies": {
-    "@fontsource/m-plus-rounded-1c": "^5.3.0",
     "lucide-react": "^0.469.0",
     "maplibre-gl": "^4.7.1",
     "next": "16.2.12",

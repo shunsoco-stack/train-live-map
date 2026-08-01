@@ -29,13 +29,14 @@ const config: Config = {
       },
       fontFamily: {
         sans: [
-          "M PLUS Rounded 1c",
           "Hiragino Maru Gothic ProN",
+          "Yu Gothic UI",
+          "ui-rounded",
+          "system-ui",
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",
           "Hiragino Kaku Gothic ProN",
-          "Yu Gothic UI",
           "Noto Sans JP",
           "sans-serif",
         ],
