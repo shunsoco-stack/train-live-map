@@ -92,6 +92,26 @@ export const TRAIN_FILTERS: { key: TrainFilterKey; label: string }[] = [
   { key: "suspended", label: "運転見合わせ" },
 ];
 
+/** 凡例UIが状態定義を二重管理しないための表示用データ。 */
+export const TRAIN_STATUS_LEGEND = (
+  ["running", "warn", "danger", "suspended", "unknown"] as const
+).map((level) => {
+  const filterKey =
+    level === "warn" || level === "danger" ? "stopped" : level;
+  const filterLabel = TRAIN_FILTERS.find((filter) => filter.key === filterKey)?.label;
+  const appearance = APPEARANCE[level];
+  return {
+    level,
+    ...appearance,
+    label:
+      level === "warn"
+        ? `${filterLabel ?? appearance.label}（注意）`
+        : level === "danger"
+          ? `${filterLabel ?? appearance.label}（長時間）`
+          : filterLabel ?? appearance.label,
+  };
+});
+
 /** 状態の日本語表記(詳細パネル用)。 */
 export function statusLabelJa(status: TrainStatus): string {
   switch (status) {

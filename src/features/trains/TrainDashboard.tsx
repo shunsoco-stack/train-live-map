@@ -15,6 +15,8 @@ import { useRailwayNetwork } from "@/features/railways/useRailwayNetwork";
 import { ServiceStatusBar } from "@/features/service-status/ServiceStatusBar";
 import { TrainDetailPanel } from "@/features/trains/TrainDetailPanel";
 import { TrainFilterBar } from "@/features/trains/TrainFilterBar";
+import { LegendSheet } from "@/features/trains/LegendSheet";
+import { TrainSearch } from "@/features/trains/TrainSearch";
 import { useTrainData } from "@/features/trains/useTrainData";
 import { useNow } from "@/lib/useNow";
 import { serviceStatusesForVisibleLines } from "@/lib/serviceStatus";
@@ -59,6 +61,7 @@ export function TrainDashboard() {
 
   const [filter, setFilter] = useState<TrainFilterKey>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [legendOpen, setLegendOpen] = useState(false);
 
   useEffect(() => {
     if (railwayLoading || railwaySelectionReady.current) return;
@@ -171,6 +174,7 @@ export function TrainDashboard() {
         lastUpdatedAt={lastUpdatedAt}
         dataUpdatedAt={dataUpdatedAt}
         source={source}
+        onOpenLegend={() => setLegendOpen(true)}
       />
 
       <main className="relative flex-1">
@@ -208,6 +212,7 @@ export function TrainDashboard() {
           </div>
           <DataSourceNotice notice={notice} fallback={fallback} />
           {error && <ErrorNotice message={error} onRetry={refresh} />}
+          <TrainSearch trains={trainsOnVisibleLines} onSelect={setSelectedId} />
         </div>
 
         {/* 下部オーバーレイ: フィルター */}
@@ -234,6 +239,7 @@ export function TrainDashboard() {
 
       {/* 詳細ボトムシート */}
       <TrainDetailPanel train={selectedTrain} onClose={() => setSelectedId(null)} />
+      <LegendSheet open={legendOpen} onClose={() => setLegendOpen(false)} />
     </div>
   );
 }

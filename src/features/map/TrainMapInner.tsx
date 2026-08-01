@@ -264,6 +264,9 @@ export default function TrainMapInner({
   const routeSourceIdsRef = useRef<Set<string>>(new Set());
   const stationSourceIdsRef = useRef<Set<string>>(new Set());
   const stationImageIdsRef = useRef<Set<string>>(new Set());
+  const focusedTrainIdRef = useRef<string | null>(null);
+  const geolocationTimerRef = useRef<number | null>(null);
+  const [geolocationMessage, setGeolocationMessage] = useState<string | null>(null);
   // 最新の onSelect を参照するための ref(マーカー生成時のクロージャ固定を回避)
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
@@ -289,6 +292,24 @@ export default function TrainMapInner({
     mapRef.current = map;
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    const geolocateControl = new maplibregl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: true },
+      fitBoundsOptions: { maxZoom: 14 },
+      showUserLocation: true,
+      trackUserLocation: false,
+    });
+    geolocateControl.on("geolocate", () => setGeolocationMessage(null));
+    geolocateControl.on("error", () => {
+      setGeolocationMessage("現在地を取得できません。ブラウザの位置情報許可をご確認ください。");
+      if (geolocationTimerRef.current !== null) {
+        window.clearTimeout(geolocationTimerRef.current);
+      }
+      geolocationTimerRef.current = window.setTimeout(
+        () => setGeolocationMessage(null),
+        6_000,
+      );
+    });
+    map.addControl(geolocateControl, "top-right");
     map.addControl(
       new maplibregl.AttributionControl({ compact: true }),
       "bottom-right",
@@ -309,6 +330,9 @@ export default function TrainMapInner({
       routeSourceIdsRef.current.clear();
       stationSourceIdsRef.current.clear();
       stationImageIdsRef.current.clear();
+      if (geolocationTimerRef.current !== null) {
+        window.clearTimeout(geolocationTimerRef.current);
+      }
     };
   }, []);
 
@@ -704,13 +728,39 @@ export default function TrainMapInner({
     }
   }, [trains, selectedId, now]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    if (!selectedId) {
+      focusedTrainIdRef.current = null;
+      return;
+    }
+    if (focusedTrainIdRef.current === selectedId) return;
+    const train = trains.find((candidate) => candidate.id === selectedId);
+    if (!train) return;
+    focusedTrainIdRef.current = selectedId;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    map.easeTo({
+      center: [train.longitude, train.latitude],
+      zoom: Math.max(map.getZoom(), 12),
+      duration: reducedMotion ? 0 : 500,
+    });
+  }, [mapReady, selectedId, trains]);
+
   return (
-    <div
-      ref={containerRef}
-      className="absolute inset-0 h-full w-full"
-      aria-label="関東エリアのJR列車位置地図"
-      role="application"
-    />
+    <>
+      <div
+        ref={containerRef}
+        className="absolute inset-0 h-full w-full"
+        aria-label="関東エリアのJR列車位置地図"
+        role="application"
+      />
+      {geolocationMessage && (
+        <div className="app-material pointer-events-none absolute left-1/2 top-3 z-30 w-[calc(100%-1.5rem)] max-w-sm -translate-x-1/2 rounded-2xl border border-amber-400/60 px-4 py-3 text-sm text-amber-100 shadow-xl" role="status">
+          {geolocationMessage}
+        </div>
+      )}
+    </>
   );
 }
 
