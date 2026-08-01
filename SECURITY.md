@@ -10,7 +10,7 @@ push subscription credentials, or other secrets in a public issue.
 
 - The public map has no user account, administrator role, or authenticated session.
 - Community reports are intentionally anonymous. Server-side HMAC pseudonyms,
-  per-source limits, per-reporter cooldowns, strict JSON validation, and
+  per-IP/per-line and per-IP/global limits, per-reporter cooldowns, strict JSON validation, and
   same-origin browser checks reduce abuse; they do not provide proof of identity.
 - ODPT, Redis, and VAPID credentials are server-only environment variables.
 - Web Push endpoints are limited to known HTTPS push-service domains.
@@ -19,8 +19,8 @@ push subscription credentials, or other secrets in a public issue.
 ## Deployment requirements
 
 - Keep `ODPT_ACCESS_TOKEN`, Redis credentials, `VAPID_PRIVATE_KEY`, and
-  `COMMUNITY_REPORT_HMAC_SECRET` out of Git and client-visible variables.
-- Use a dedicated random `COMMUNITY_REPORT_HMAC_SECRET` of at least 32 characters.
+  `REPORTER_HASH_SALT` out of Git and client-visible variables.
+- Use a dedicated random `REPORTER_HASH_SALT` of at least 32 characters.
 - Scope production secrets to Production and use separate values for Preview.
 - Enable provider-side rate limits, Vercel deployment protection for previews,
   GitHub secret scanning, Dependabot alerts, and branch protection.

@@ -32,6 +32,33 @@ test("cross-site browser mutation is rejected", () => {
   if (!result.ok) assert.equal(result.status, 403);
 });
 
+test("cross-site referer is rejected when Origin is absent", () => {
+  const result = validateMutationRequest(
+    new Headers({
+      referer: "https://attacker.example/form",
+      "content-type": "application/json",
+    }),
+    requestUrl,
+    undefined,
+    [],
+  );
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.status, 403);
+});
+
+test("configured Vercel deployment origin is accepted", () => {
+  const result = validateMutationRequest(
+    new Headers({
+      origin: "https://train-live-map-preview.vercel.app",
+      "content-type": "application/json",
+    }),
+    requestUrl,
+    undefined,
+    ["train-live-map-preview.vercel.app"],
+  );
+  assert.deepEqual(result, { ok: true });
+});
+
 test("simple cross-site text body is rejected", () => {
   const result = validateMutationRequest(
     new Headers({ "content-type": "text/plain" }),

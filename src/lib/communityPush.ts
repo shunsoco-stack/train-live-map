@@ -32,7 +32,8 @@ function reportsInWindow(
     ) {
       continue;
     }
-    const sourceIdentity = report.sourceHash ?? report.reporterHash;
+    const sourceIdentity =
+      report.reporterIpHash ?? report.sourceHash ?? report.reporterHash;
     const previous = latestByReporter.get(sourceIdentity);
     if (
       !previous ||

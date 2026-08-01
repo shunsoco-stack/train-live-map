@@ -11,7 +11,9 @@ export interface CommunityReportVote {
 
 export interface CommunityReportRecord extends CommunityReportVote {
   reporterHash: string;
-  /** HMAC pseudonym for abuse controls; absent only on legacy records. */
+  /** HMAC pseudonym of the platform-provided address. */
+  reporterIpHash?: string;
+  /** Legacy name retained while existing Redis records expire. */
   sourceHash?: string;
   createdAt: string;
 }

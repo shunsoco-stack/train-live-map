@@ -14,12 +14,12 @@ function report(
   status: CommunityReportRecord["status"],
   ageMs: number,
   lineId = "tokaido",
-  sourceHash = reporterHash,
+  reporterIpHash = reporterHash,
 ): CommunityReportRecord {
   return {
     lineId,
     reporterHash,
-    sourceHash,
+    reporterIpHash,
     status,
     delayMinutes: null,
     createdAt: new Date(NOW - ageMs).toISOString(),

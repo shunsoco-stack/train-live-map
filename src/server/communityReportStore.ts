@@ -4,18 +4,31 @@ import {
   COMMUNITY_REPORT_WINDOW_MS,
 } from "@/lib/communityReports";
 import {
+  COMMUNITY_COMMON_GLOBAL_RATE_MAX_REPORTS,
+  COMMUNITY_COMMON_LINE_RATE_WINDOW_SECONDS,
+  COMMUNITY_IP_LINE_RATE_WINDOW_SECONDS,
+  COMMUNITY_SOURCE_RATE_MAX_REPORTS,
+  COMMUNITY_SOURCE_RATE_WINDOW_SECONDS,
+  MemoryCommunityRateLimiter,
+  type CommunitySubmissionRateLimitInput,
+  type CommunitySubmissionRateLimitResult,
+} from "@/lib/communityRateLimit";
+import {
   redisCommand,
   redisConfiguration,
   type RedisConfiguration,
 } from "@/server/redis";
 import type { CommunityReportRecord } from "@/types/community";
 
+export {
+  COMMUNITY_COMMON_LINE_RATE_WINDOW_SECONDS,
+  COMMUNITY_IP_LINE_RATE_WINDOW_SECONDS,
+  COMMUNITY_SOURCE_RATE_WINDOW_SECONDS,
+} from "@/lib/communityRateLimit";
+
 const REPORTS_KEY = "train-live-map:community-reports:v1";
 const REPORTS_TTL_SECONDS = 60 * 60;
 const MAX_STORED_REPORTS = 20_000;
-export const COMMUNITY_SOURCE_RATE_WINDOW_SECONDS = 5 * 60;
-export const COMMUNITY_SOURCE_RATE_MAX_REPORTS = 2;
-
 interface StoredReport {
   member: string;
   record: CommunityReportRecord;
@@ -24,11 +37,9 @@ interface StoredReport {
 export interface CommunityReportStore {
   persistent: boolean;
   listActive(now?: number): Promise<StoredReport[]>;
-  claimRateLimit(
-    reporterHash: string,
-    lineId: string,
-  ): Promise<boolean>;
-  claimSourceRateLimit(sourceHash: string, now?: number): Promise<boolean>;
+  claimSubmissionRateLimit(
+    input: CommunitySubmissionRateLimitInput,
+  ): Promise<CommunitySubmissionRateLimitResult>;
   save(report: CommunityReportRecord, now?: number): Promise<void>;
 }
 
@@ -40,6 +51,8 @@ function parseStoredReports(members: readonly string[]): StoredReport[] {
         !record ||
         typeof record.lineId !== "string" ||
         typeof record.reporterHash !== "string" ||
+        (record.reporterIpHash !== undefined &&
+          typeof record.reporterIpHash !== "string") ||
         (record.sourceHash !== undefined &&
           typeof record.sourceHash !== "string") ||
         typeof record.createdAt !== "string"
@@ -55,8 +68,11 @@ function parseStoredReports(members: readonly string[]): StoredReport[] {
 
 class RedisCommunityReportStore implements CommunityReportStore {
   public readonly persistent = true;
+  private readonly config: RedisConfiguration;
 
-  constructor(private readonly config: RedisConfiguration) {}
+  constructor(config: RedisConfiguration) {
+    this.config = config;
+  }
 
   async listActive(now = Date.now()): Promise<StoredReport[]> {
     const cutoff = now - COMMUNITY_REPORT_WINDOW_MS;
@@ -69,47 +85,53 @@ class RedisCommunityReportStore implements CommunityReportStore {
     return parseStoredReports(members ?? []);
   }
 
-  async claimRateLimit(
-    reporterHash: string,
-    lineId: string,
-  ): Promise<boolean> {
-    const result = await redisCommand<string | null>(this.config, [
-      "SET",
-      `${REPORTS_KEY}:rate:${reporterHash}:${lineId}`,
-      "1",
-      "NX",
-      "EX",
-      COMMUNITY_REPORT_COOLDOWN_SECONDS,
-    ]);
-    return result === "OK";
-  }
-
-  async claimSourceRateLimit(
-    sourceHash: string,
+  async claimSubmissionRateLimit({
+    reporterHash,
+    reporterIpHash,
+    lineId,
+    commonBucket,
     now = Date.now(),
-  ): Promise<boolean> {
-    const key = `${REPORTS_KEY}:source-rate:${sourceHash}`;
+  }: CommunitySubmissionRateLimitInput): Promise<CommunitySubmissionRateLimitResult> {
+    const reporterKey = `${REPORTS_KEY}:rate:reporter:${reporterHash}:${lineId}`;
+    const ipLineKey = `${REPORTS_KEY}:rate:ip-line:${reporterIpHash}:${lineId}`;
+    const ipGlobalKey = `${REPORTS_KEY}:rate:ip-global:${reporterIpHash}`;
     const cutoff = now - COMMUNITY_SOURCE_RATE_WINDOW_SECONDS * 1000;
+    const lineWindow = commonBucket
+      ? COMMUNITY_COMMON_LINE_RATE_WINDOW_SECONDS
+      : COMMUNITY_IP_LINE_RATE_WINDOW_SECONDS;
+    const globalMaximum = commonBucket
+      ? COMMUNITY_COMMON_GLOBAL_RATE_MAX_REPORTS
+      : COMMUNITY_SOURCE_RATE_MAX_REPORTS;
     const script = [
-      "redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[1])",
-      "local count = redis.call('ZCARD', KEYS[1])",
-      "if count >= tonumber(ARGV[2]) then return 0 end",
-      "redis.call('ZADD', KEYS[1], ARGV[3], ARGV[4])",
-      "redis.call('EXPIRE', KEYS[1], ARGV[5])",
-      "return 1",
+      "if redis.call('EXISTS', KEYS[1]) == 1 then return 1 end",
+      "if redis.call('EXISTS', KEYS[2]) == 1 then return 2 end",
+      "redis.call('ZREMRANGEBYSCORE', KEYS[3], '-inf', ARGV[1])",
+      "local count = redis.call('ZCARD', KEYS[3])",
+      "if count >= tonumber(ARGV[2]) then return 3 end",
+      "redis.call('SET', KEYS[1], '1', 'EX', ARGV[5])",
+      "redis.call('SET', KEYS[2], '1', 'EX', ARGV[6])",
+      "redis.call('ZADD', KEYS[3], ARGV[3], ARGV[4])",
+      "redis.call('EXPIRE', KEYS[3], ARGV[7])",
+      "return 0",
     ].join("; ");
-    const allowed = await redisCommand<number>(this.config, [
+    const result = await redisCommand<number>(this.config, [
       "EVAL",
       script,
-      1,
-      key,
+      3,
+      reporterKey,
+      ipLineKey,
+      ipGlobalKey,
       cutoff,
-      COMMUNITY_SOURCE_RATE_MAX_REPORTS,
+      globalMaximum,
       now,
       `${now}:${randomUUID()}`,
+      COMMUNITY_REPORT_COOLDOWN_SECONDS,
+      lineWindow,
       COMMUNITY_SOURCE_RATE_WINDOW_SECONDS + 5,
     ]);
-    return allowed === 1;
+    return (["allowed", "reporter", "ip-line", "ip-global"] as const)[
+      result ?? 3
+    ];
   }
 
   async save(
@@ -161,8 +183,7 @@ class RedisCommunityReportStore implements CommunityReportStore {
 
 interface MemoryState {
   reports: StoredReport[];
-  rateLimits: Map<string, number>;
-  sourceRateLimits: Map<string, number[]>;
+  rateLimiter: MemoryCommunityRateLimiter;
 }
 
 const memoryGlobal = globalThis as typeof globalThis & {
@@ -173,8 +194,7 @@ function memoryState(): MemoryState {
   if (!memoryGlobal.__trainLiveMapCommunityReports) {
     memoryGlobal.__trainLiveMapCommunityReports = {
       reports: [],
-      rateLimits: new Map(),
-      sourceRateLimits: new Map(),
+      rateLimiter: new MemoryCommunityRateLimiter(),
     };
   }
   return memoryGlobal.__trainLiveMapCommunityReports;
@@ -182,9 +202,14 @@ function memoryState(): MemoryState {
 
 class MemoryCommunityReportStore implements CommunityReportStore {
   public readonly persistent = false;
+  private readonly state: MemoryState;
+
+  constructor(state: MemoryState = memoryState()) {
+    this.state = state;
+  }
 
   async listActive(now = Date.now()): Promise<StoredReport[]> {
-    const state = memoryState();
+    const state = this.state;
     const cutoff = now - COMMUNITY_REPORT_WINDOW_MS;
     state.reports = state.reports.filter(
       (item) => Date.parse(item.record.createdAt) >= cutoff,
@@ -192,45 +217,17 @@ class MemoryCommunityReportStore implements CommunityReportStore {
     return [...state.reports];
   }
 
-  async claimRateLimit(
-    reporterHash: string,
-    lineId: string,
-  ): Promise<boolean> {
-    const state = memoryState();
-    const key = `${reporterHash}:${lineId}`;
-    const now = Date.now();
-    const expiresAt = state.rateLimits.get(key) ?? 0;
-    if (expiresAt > now) return false;
-    state.rateLimits.set(
-      key,
-      now + COMMUNITY_REPORT_COOLDOWN_SECONDS * 1000,
-    );
-    return true;
-  }
-
-  async claimSourceRateLimit(
-    sourceHash: string,
-    now = Date.now(),
-  ): Promise<boolean> {
-    const state = memoryState();
-    const cutoff = now - COMMUNITY_SOURCE_RATE_WINDOW_SECONDS * 1000;
-    const active = (state.sourceRateLimits.get(sourceHash) ?? []).filter(
-      (timestamp) => timestamp > cutoff,
-    );
-    if (active.length >= COMMUNITY_SOURCE_RATE_MAX_REPORTS) {
-      state.sourceRateLimits.set(sourceHash, active);
-      return false;
-    }
-    active.push(now);
-    state.sourceRateLimits.set(sourceHash, active);
-    return true;
+  async claimSubmissionRateLimit({
+    ...input
+  }: CommunitySubmissionRateLimitInput): Promise<CommunitySubmissionRateLimitResult> {
+    return this.state.rateLimiter.claim(input);
   }
 
   async save(
     report: CommunityReportRecord,
     now = Date.now(),
   ): Promise<void> {
-    const state = memoryState();
+    const state = this.state;
     await this.listActive(now);
     state.reports = state.reports.filter(
       (item) =>
@@ -245,6 +242,13 @@ class MemoryCommunityReportStore implements CommunityReportStore {
       state.reports = state.reports.slice(-MAX_STORED_REPORTS);
     }
   }
+}
+
+export function createMemoryCommunityReportStore(): CommunityReportStore {
+  return new MemoryCommunityReportStore({
+    reports: [],
+    rateLimiter: new MemoryCommunityRateLimiter(),
+  });
 }
 
 export function getCommunityReportStore(): CommunityReportStore {

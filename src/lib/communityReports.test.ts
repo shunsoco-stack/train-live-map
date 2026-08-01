@@ -15,12 +15,12 @@ function report(
   status: CommunityReportRecord["status"],
   delayMinutes: number | null = null,
   createdAt = new Date(NOW - 60_000).toISOString(),
-  sourceHash = reporterHash,
+  reporterIpHash = reporterHash,
 ): CommunityReportRecord {
   return {
     lineId,
     reporterHash,
-    sourceHash,
+    reporterIpHash,
     status,
     delayMinutes,
     createdAt,

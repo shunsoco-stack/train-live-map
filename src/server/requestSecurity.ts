@@ -11,6 +11,31 @@ export type MutationRequestError = {
 
 export type MutationRequestCheck = { ok: true } | MutationRequestError;
 
+let warnedAboutReporterHashSalt = false;
+
+function configuredOrigin(value: string | undefined): string | null {
+  const candidate = value?.trim();
+  if (!candidate) return null;
+  try {
+    return new URL(
+      candidate.includes("://") ? candidate : `https://${candidate}`,
+    ).origin;
+  } catch {
+    return null;
+  }
+}
+
+/** Deployment aliases accepted in addition to the host receiving the request. */
+export function deploymentMutationOrigins(): string[] {
+  return [
+    process.env.VERCEL_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    process.env.NEXT_PUBLIC_SITE_URL,
+  ]
+    .map(configuredOrigin)
+    .filter((value): value is string => value !== null);
+}
+
 /**
  * Reject browser cross-site mutations and non-JSON bodies. Requests without
  * browser fetch metadata remain available to future native clients.
@@ -19,11 +44,18 @@ export function validateMutationRequest(
   headers: Headers,
   requestUrl: URL,
   maxBytes = MAX_MUTATION_BODY_BYTES,
+  additionalAllowedOrigins: readonly string[] = deploymentMutationOrigins(),
 ): MutationRequestCheck {
+  const allowedOrigins = new Set([
+    requestUrl.origin,
+    ...additionalAllowedOrigins.map(configuredOrigin).filter(
+      (value): value is string => value !== null,
+    ),
+  ]);
   const origin = headers.get("origin");
   if (origin) {
     try {
-      if (new URL(origin).origin !== requestUrl.origin) {
+      if (!allowedOrigins.has(new URL(origin).origin)) {
         return {
           ok: false,
           status: 403,
@@ -36,6 +68,25 @@ export function validateMutationRequest(
         status: 403,
         message: "リクエスト元を確認できません。",
       };
+    }
+  } else {
+    const referer = headers.get("referer");
+    if (referer) {
+      try {
+        if (!allowedOrigins.has(new URL(referer).origin)) {
+          return {
+            ok: false,
+            status: 403,
+            message: "別のサイトからの操作は受け付けられません。",
+          };
+        }
+      } catch {
+        return {
+          ok: false,
+          status: 403,
+          message: "リクエスト元を確認できません。",
+        };
+      }
     }
   }
 
@@ -141,14 +192,31 @@ export function clientAddress(headers: Headers): string | null {
  * A dedicated secret is preferred. Existing server-only credentials provide a
  * fail-safe key so deployments with persistent voting are protected immediately.
  */
-export function abusePreventionSecret(): string | null {
+export function abusePreventionSecret(): string {
+  const preferred = process.env.REPORTER_HASH_SALT?.trim();
+  if ((preferred?.length ?? 0) >= 32) return preferred!;
+
+  if (!warnedAboutReporterHashSalt) {
+    warnedAboutReporterHashSalt = true;
+    console.warn(
+      "[security] REPORTER_HASH_SALT is missing or shorter than 32 characters; using a server-only fallback.",
+    );
+  }
+
   const candidates = [
     process.env.COMMUNITY_REPORT_HMAC_SECRET,
     process.env.VAPID_PRIVATE_KEY,
     process.env.UPSTASH_REDIS_REST_TOKEN,
     process.env.KV_REST_API_TOKEN,
   ];
-  return candidates.find((value) => (value?.trim().length ?? 0) >= 32)?.trim() ?? null;
+  const fallback = candidates
+    .find((value) => (value?.trim().length ?? 0) >= 32)
+    ?.trim();
+  if (fallback) return fallback;
+
+  // Last-resort compatibility fallback. It is never returned to clients or logs.
+  // Production deployments should always configure REPORTER_HASH_SALT.
+  return `train-live-map-pseudonym-fallback-v1:${process.env.VERCEL_PROJECT_ID ?? "local"}`;
 }
 
 export function pseudonymousHash(

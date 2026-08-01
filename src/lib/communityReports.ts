@@ -71,7 +71,8 @@ export function aggregateCommunityReports(
       continue;
     }
     const group = byLine.get(report.lineId) ?? new Map();
-    const sourceIdentity = report.sourceHash ?? report.reporterHash;
+    const sourceIdentity =
+      report.reporterIpHash ?? report.sourceHash ?? report.reporterHash;
     const previous = group.get(sourceIdentity);
     if (!previous || Date.parse(previous.createdAt) < createdAt) {
       group.set(sourceIdentity, report);

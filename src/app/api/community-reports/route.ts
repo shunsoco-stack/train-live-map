@@ -7,6 +7,8 @@ import {
 } from "@/lib/communityReports";
 import { getRailwayCatalogLine } from "@/data/railwayCatalog";
 import {
+  COMMUNITY_COMMON_LINE_RATE_WINDOW_SECONDS,
+  COMMUNITY_IP_LINE_RATE_WINDOW_SECONDS,
   COMMUNITY_SOURCE_RATE_WINDOW_SECONDS,
   getCommunityReportStore,
 } from "@/server/communityReportStore";
@@ -100,48 +102,46 @@ export async function POST(request: NextRequest) {
       return errorResponse("投票内容を確認してください。", 400);
     }
 
-    const local = isLocalRequest(request);
-    const secret =
-      abusePreventionSecret() ??
-      (local ? "train-live-map-local-development-key-only" : null);
-    const address = clientAddress(request.headers) ?? (local ? "local" : null);
-    if (!secret || !address) {
-      return errorResponse("不正投票対策の設定を確認しています。", 503);
-    }
-
-    const sourceHash = pseudonymousHash(
+    const secret = abusePreventionSecret();
+    const address = clientAddress(request.headers);
+    const commonBucket = address === null;
+    const reporterIpHash = pseudonymousHash(
       secret,
-      "community-source-v1",
-      address,
+      "community-reporter-ip-v1",
+      address ?? "missing-platform-address",
     );
-    const sourceAllowed = await store.claimSourceRateLimit(sourceHash);
-    if (!sourceAllowed) {
-      return errorResponse(
-        "短時間の投票上限に達しました。少し時間をおいてください。",
-        429,
-        { "Retry-After": String(COMMUNITY_SOURCE_RATE_WINDOW_SECONDS) },
-      );
-    }
-
     const reporterHash = pseudonymousHash(
       secret,
       "community-reporter-v2",
       reporterId,
     );
-    const allowed = await store.claimRateLimit(
+
+    const rateLimit = await store.claimSubmissionRateLimit({
       reporterHash,
-      vote.lineId,
-    );
-    if (!allowed) {
+      reporterIpHash,
+      lineId: vote.lineId,
+      commonBucket,
+    });
+    if (rateLimit !== "allowed") {
+      const retryAfter =
+        rateLimit === "ip-global"
+          ? COMMUNITY_SOURCE_RATE_WINDOW_SECONDS
+          : rateLimit === "ip-line"
+            ? commonBucket
+              ? COMMUNITY_COMMON_LINE_RATE_WINDOW_SECONDS
+              : COMMUNITY_IP_LINE_RATE_WINDOW_SECONDS
+            : COMMUNITY_REPORT_COOLDOWN_SECONDS;
       return errorResponse(
-        `同じ路線には${COMMUNITY_REPORT_COOLDOWN_SECONDS}秒後に再投票できます。`,
+        rateLimit === "ip-global"
+          ? "短時間の投票上限に達しました。少し時間をおいてください。"
+          : `同じ路線には${retryAfter}秒後に再投票できます。`,
         429,
-        { "Retry-After": String(COMMUNITY_REPORT_COOLDOWN_SECONDS) },
+        { "Retry-After": String(retryAfter) },
       );
     }
 
     const createdAt = new Date().toISOString();
-    await store.save({ ...vote, reporterHash, sourceHash, createdAt });
+    await store.save({ ...vote, reporterHash, reporterIpHash, createdAt });
     if (vote.status === "suspended") {
       try {
         const activeReports = await store.listActive();
