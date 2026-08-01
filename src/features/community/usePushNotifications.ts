@@ -12,6 +12,7 @@ import {
   safeReadStorage,
   safeWriteStorage,
 } from "@/lib/browserGuidance";
+import { registerAppServiceWorker } from "@/lib/serviceWorker";
 import type { WebPushSubscriptionData } from "@/types/push";
 
 const PUSH_LINES_STORAGE_KEY = "train-live-map:push-lines-v1";
@@ -166,7 +167,7 @@ export function usePushNotifications() {
           return;
         }
 
-        await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+        await registerAppServiceWorker();
         const ready = await navigator.serviceWorker.ready;
         const subscription =
           await ready.pushManager.getSubscription();

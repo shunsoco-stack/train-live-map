@@ -52,12 +52,14 @@ export function TrainDashboard() {
     error,
     lastUpdatedAt,
     dataUpdatedAt,
+    serviceStatusFailureCount,
     refresh,
   } = useTrainData(visibleLineIds);
   const {
     lines: railwayLines,
     options: railwayOptions,
     loading: railwayLoading,
+    failureCount: railwayFailureCount,
   } = useRailwayNetwork();
   const now = useNow(10_000);
 
@@ -216,6 +218,11 @@ export function TrainDashboard() {
 
         {/* 上部オーバーレイ: 運行情報・エラー */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col gap-2 p-3">
+          {(serviceStatusFailureCount >= 2 || railwayFailureCount >= 2) && (
+            <p className="app-material rounded-xl border border-amber-400/40 px-3 py-2 text-xs text-amber-100" role="status">
+              運行情報を更新できていません（前回の情報を表示中）
+            </p>
+          )}
           <div className="flex max-h-36 flex-col gap-2 overflow-y-auto">
             {visibleServiceStatuses.map((status) => (
               <ServiceStatusBar

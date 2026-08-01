@@ -3,6 +3,7 @@
 import { Info, Mail, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import type { ProviderSource } from "@/types/train";
 
 const CONTACT_EMAIL = "train-live-map-support@gmail.com";
@@ -123,6 +124,10 @@ export function DataUsageNotice({ source }: DataUsageNoticeProps) {
                   <Mail className="h-4 w-4 shrink-0" aria-hidden />
                   {CONTACT_EMAIL}
                 </a>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-4 text-sm font-semibold">
+                <Link href="/privacy" onClick={() => setOpen(false)} className="text-orange-300 underline underline-offset-4">プライバシーポリシー</Link>
+                <Link href="/terms" onClick={() => setOpen(false)} className="text-orange-300 underline underline-offset-4">利用規約・免責</Link>
               </div>
             </section>
           </div>,

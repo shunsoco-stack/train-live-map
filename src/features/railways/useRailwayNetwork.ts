@@ -27,6 +27,7 @@ interface RailwayNetworkState {
   lines: RailwayMapLine[];
   options: RailwayFilterOption[];
   loading: boolean;
+  failureCount: number;
 }
 
 export function useRailwayNetwork(): RailwayNetworkState {
@@ -34,6 +35,7 @@ export function useRailwayNetwork(): RailwayNetworkState {
     lines: [fallbackLine],
     options: railwayFilterOptions(new Set(["tokaido"])),
     loading: true,
+    failureCount: 0,
   });
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -43,17 +45,29 @@ export function useRailwayNetwork(): RailwayNetworkState {
         lines: response.lines,
         options: response.options,
         loading: false,
+        failureCount: 0,
       });
     } catch {
       if (signal?.aborted) return;
-      setState((previous) => ({ ...previous, loading: false }));
+      setState((previous) => ({
+        ...previous,
+        loading: false,
+        failureCount: previous.failureCount + 1,
+      }));
     }
   }, []);
 
   useEffect(() => {
     const controller = new AbortController();
     void load(controller.signal);
-    return () => controller.abort();
+    const retryTimer = window.setInterval(
+      () => void load(controller.signal),
+      30_000,
+    );
+    return () => {
+      controller.abort();
+      window.clearInterval(retryTimer);
+    };
   }, [load]);
 
   return state;

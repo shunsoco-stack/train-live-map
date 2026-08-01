@@ -71,6 +71,23 @@ body {
   display: none;
 }
 
+.legal-content h2 {
+  color: #fff7ed;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.legal-content ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+
+.legal-content a {
+  color: #fdba74;
+  text-decoration: underline;
+  text-underline-offset: 0.2rem;
+}
+
 .train-marker:hover,
 .train-marker:focus-visible {
   z-index: 30 !important;

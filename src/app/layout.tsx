@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { adsenseClientId } from "@/lib/adsense";
+import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import "./globals.css";
 
 const title = "Train Live Map｜JR東日本・関東版";
@@ -82,13 +83,19 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const buildId =
+    process.env.VERCEL_GIT_COMMIT_SHA?.trim() ||
+    process.env.NEXT_PUBLIC_BUILD_ID?.trim() ||
+    "local";
   return (
     <html lang="ja">
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="train-live-map-build" content={buildId} />
       </head>
       <body className="font-sans antialiased">
         {children}
+        <ServiceWorkerRegistration />
         {adsenseClientId && (
           <Script
             id="google-adsense"

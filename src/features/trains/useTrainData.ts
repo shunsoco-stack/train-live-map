@@ -25,6 +25,8 @@ interface TrainDataState {
   lastUpdatedAt: Date | null;
   /** 表示中データ自体の更新時刻。ODPT 利用時は dc:date が元になる。 */
   dataUpdatedAt: Date | null;
+  /** 運行情報APIの連続失敗回数。成功時に0へ戻す。 */
+  serviceStatusFailureCount: number;
 }
 
 interface UseTrainDataResult extends TrainDataState {
@@ -51,6 +53,7 @@ export function useTrainData(visibleLineIds: ReadonlySet<string>): UseTrainDataR
     error: null,
     lastUpdatedAt: null,
     dataUpdatedAt: null,
+    serviceStatusFailureCount: 0,
   });
 
   const loadTrains = useCallback(async (signal?: AbortSignal) => {
@@ -68,6 +71,14 @@ export function useTrainData(visibleLineIds: ReadonlySet<string>): UseTrainDataR
         lastUpdatedAt: new Date(),
         dataUpdatedAt: new Date(data.dataUpdatedAt),
       }));
+      try {
+        window.localStorage.setItem(
+          "train-live-map:last-data-updated-v1",
+          data.dataUpdatedAt,
+        );
+      } catch {
+        // ストレージ拒否時も列車情報の表示は継続する。
+      }
     } catch (err) {
       if (signal?.aborted) return;
       setState((prev) => ({
@@ -87,9 +98,14 @@ export function useTrainData(visibleLineIds: ReadonlySet<string>): UseTrainDataR
       setState((prev) => ({
         ...prev,
         serviceStatuses: data.serviceStatuses ?? [data.serviceStatus],
+        serviceStatusFailureCount: 0,
       }));
     } catch {
-      // 運行情報の失敗は致命的でないため、静かに無視(既存表示を維持)
+      if (signal?.aborted) return;
+      setState((prev) => ({
+        ...prev,
+        serviceStatusFailureCount: prev.serviceStatusFailureCount + 1,
+      }));
     }
   }, [lineKey]);
 
