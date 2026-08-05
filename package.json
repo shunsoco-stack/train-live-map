@@ -11,17 +11,17 @@
     "test": "node --test src/app/api/community-reports/validation.test.ts src/data/railwayCatalog.test.ts src/lib/browserGuidance.test.ts src/lib/communityPush.test.ts src/lib/communityRateLimit.test.ts src/lib/communityReports.test.ts src/lib/jrEast/serviceStatus.test.ts src/lib/mapViewport.test.ts src/lib/odpt/api.test.ts src/lib/odpt/direction.test.ts src/lib/odpt/mapper.test.ts src/lib/odpt/network.test.ts src/lib/odpt/saikyoKawagoe.test.ts src/lib/pushSubscriptionRegistry.test.ts src/lib/serviceStatus.test.ts src/lib/trainApiPayload.test.ts src/lib/trainMotion.test.ts src/lib/trainStatus.test.ts src/server/requestSecurity.test.ts src/server/responseCache.test.ts"
   },
   "dependencies": {
-    "lucide-react": "^0.469.0",
-    "maplibre-gl": "^4.7.1",
+    "lucide-react": "^1.28.0",
+    "maplibre-gl": "^6.1.0",
     "next": "16.2.12",
-    "react": "19.2.6",
-    "react-dom": "19.2.6",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@types/node": "^20.17.12",
-    "@types/react": "^19.0.7",
-    "@types/react-dom": "^19.0.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
     "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.4.20",
     "eslint": "9.39.5",
