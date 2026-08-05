@@ -94,7 +94,7 @@ export interface OdptTrainInformation {
   "owl:sameAs"?: string;
   "dc:date"?: string;
   "odpt:operator"?: string;
-  "odpt:railway"?: string;
+  "odpt:railway"?: string | string[];
   /** 運行情報テキスト(日本語) */
   "odpt:trainInformationText"?: string | { ja?: string; en?: string };
   /** 情報の種別(遅延・見合わせ等。事業者により有無が異なる) */

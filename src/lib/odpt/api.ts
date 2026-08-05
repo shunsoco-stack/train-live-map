@@ -53,8 +53,22 @@ function buildUrl(config: OdptConfig, path: string, params: Record<string, strin
   return url.toString();
 }
 
-function maskToken(url: string): string {
-  return url.replace(/(acl:consumerKey=)[^&]+/, "$1***");
+/** URL文字列にエンコードされた場合も含め、ログからアクセストークンを除去する。 */
+export function maskOdptAccessToken(url: string): string {
+  try {
+    const parsed = new URL(url);
+    for (const key of [...parsed.searchParams.keys()]) {
+      if (key.toLowerCase() === "acl:consumerkey") {
+        parsed.searchParams.set(key, "***");
+      }
+    }
+    return parsed.toString();
+  } catch {
+    return url.replace(
+      /(acl(?::|%3A)consumerKey(?:=|%3D))[^&\s]+/gi,
+      "$1***",
+    );
+  }
 }
 
 /** 1 回分の fetch(タイムアウト付き)。 */
@@ -100,7 +114,7 @@ async function fetchWithRetry<T>(
   }
 
   const url = buildUrl(config, path, params);
-  const maskedUrl = maskToken(url);
+  const maskedUrl = maskOdptAccessToken(url);
   const start = Date.now();
 
   let lastError: unknown;

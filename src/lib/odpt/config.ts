@@ -25,6 +25,9 @@ const DEFAULT_BASE_URL = "https://api-challenge.odpt.org/api/v4";
 const DEFAULT_RAILWAY = "odpt.Railway:JR-East.Tokaido";
 const DEFAULT_OPERATOR = "odpt.Operator:JR-East";
 
+/** JR東日本アイステイションズがODPTへ提供する公式運行情報の事業者ID。 */
+export const JR_EAST_TRAIN_INFORMATION_OPERATOR = "odpt.Operator:jre-is";
+
 function parseIntEnv(value: string | undefined, fallback: number): number {
   if (!value) return fallback;
   const n = Number.parseInt(value, 10);
