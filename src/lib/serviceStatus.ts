@@ -12,7 +12,12 @@ const TRAIN_STATUS_FALLBACK_MAX_AGE_MS = 2 * 60 * 1000;
 export function classifyServiceStatusSeverity(
   text: string,
 ): ServiceStatus["severity"] {
-  if (/運転再開|運転を再開|運転が再開|再開し/.test(text)) {
+  // 「運転再開見込」はまだ見合わせ中。完了を示す表現だけを再開済みと扱う。
+  if (
+    /運転(?:を|が)?再開(?:しました|しています|済み)|再開し、|再開したため/.test(
+      text,
+    )
+  ) {
     return /遅れ|遅延|運休|中止/.test(text) ? "minor" : "normal";
   }
   if (

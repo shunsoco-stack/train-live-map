@@ -69,6 +69,15 @@ test("現在の運転見合わせは重大情報に分類する", () => {
   );
 });
 
+test("運転再開見込は再開済みではなく見合わせ中と判定する", () => {
+  assert.equal(
+    classifyServiceStatusSeverity(
+      "10時40分頃運転再開見込。内・外回り電車で運転を見合わせています。",
+    ),
+    "major",
+  );
+});
+
 test("直通運転中止は全線見合わせではなく遅延情報に分類する", () => {
   assert.equal(
     classifyServiceStatusSeverity(

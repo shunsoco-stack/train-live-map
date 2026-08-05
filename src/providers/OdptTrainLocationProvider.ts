@@ -12,6 +12,11 @@ import {
 } from "@/lib/odpt/mapper";
 import { getOdptNetworkContext } from "@/lib/odpt/network";
 import { createLogger } from "@/lib/logger";
+import {
+  applyFullSuspensionsToTrains,
+  fetchJrEastKantoServiceStatuses,
+  mergeOfficialServiceStatus,
+} from "@/lib/jrEast/serviceStatus";
 
 /**
  * ODPT(公共交通オープンデータセンター)から列車位置・運行情報を取得する実装。
@@ -33,11 +38,15 @@ export class OdptTrainLocationProvider implements TrainLocationProvider {
   }
 
   async getTrainLocations(): Promise<TrainLocation[]> {
-    const [{ data, durationMs }, network] = await Promise.all([
+    const [{ data, durationMs }, network, officialStatuses] = await Promise.all([
       fetchOdptTrainsForOperator(this.config.operator, this.config),
       getOdptNetworkContext(this.config),
+      this.getOfficialStatuses(),
     ]);
-    const trains = odptTrainsToNetworkTrainLocations(data, network);
+    const trains = applyFullSuspensionsToTrains(
+      odptTrainsToNetworkTrainLocations(data, network),
+      officialStatuses,
+    );
     this.log.info("列車位置を変換", {
       raw: data.length,
       mapped: trains.length,
@@ -60,6 +69,7 @@ export class OdptTrainLocationProvider implements TrainLocationProvider {
       { data: informationData, durationMs },
       { data: trainData },
       network,
+      officialStatuses,
     ] = await Promise.all([
       fetchOdptTrainInformationForOperator(
         this.config.operator,
@@ -67,20 +77,28 @@ export class OdptTrainLocationProvider implements TrainLocationProvider {
       ),
       fetchOdptTrainsForOperator(this.config.operator, this.config),
       getOdptNetworkContext(this.config),
+      this.getOfficialStatuses(),
     ]);
     const trains = odptTrainsToNetworkTrainLocations(trainData, network);
 
+    const officialByLineId = new Map(
+      officialStatuses.map((status) => [status.lineId, status]),
+    );
     const statuses = network.response.lines.map((line) => {
       const information = informationData.filter(
         (item) => item["odpt:railway"] === line.odptId,
       );
-      return serviceStatusWithTrainDelayFallback(
+      const current = serviceStatusWithTrainDelayFallback(
         odptInformationToServiceStatus(
           information,
           line.name,
           line.id,
         ),
         trains,
+      );
+      return mergeOfficialServiceStatus(
+        current,
+        officialByLineId.get(line.id),
       );
     });
 
@@ -93,5 +111,16 @@ export class OdptTrainLocationProvider implements TrainLocationProvider {
       durationMs,
     });
     return statuses;
+  }
+
+  private async getOfficialStatuses(): Promise<ServiceStatus[]> {
+    try {
+      return await fetchJrEastKantoServiceStatuses();
+    } catch (error) {
+      this.log.warn("JR東日本公式運行情報の補助取得に失敗", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
   }
 }

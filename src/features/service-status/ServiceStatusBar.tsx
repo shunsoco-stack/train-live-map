@@ -50,6 +50,19 @@ export function ServiceStatusBar({ serviceStatus }: ServiceStatusBarProps) {
           ｜
         </span>
         {serviceStatus.message}
+        {serviceStatus.sourceUrl && serviceStatus.sourceLabel && (
+          <>
+            {" "}
+            <a
+              href={serviceStatus.sourceUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="underline decoration-current/60 underline-offset-2"
+            >
+              {serviceStatus.sourceLabel}
+            </a>
+          </>
+        )}
       </p>
     </div>
   );

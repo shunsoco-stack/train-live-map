@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .vinext",
-    "test": "node --test src/app/api/community-reports/validation.test.ts src/data/railwayCatalog.test.ts src/lib/browserGuidance.test.ts src/lib/communityPush.test.ts src/lib/communityRateLimit.test.ts src/lib/communityReports.test.ts src/lib/mapViewport.test.ts src/lib/odpt/direction.test.ts src/lib/odpt/mapper.test.ts src/lib/odpt/network.test.ts src/lib/odpt/saikyoKawagoe.test.ts src/lib/pushSubscriptionRegistry.test.ts src/lib/serviceStatus.test.ts src/lib/trainApiPayload.test.ts src/lib/trainMotion.test.ts src/lib/trainStatus.test.ts src/server/requestSecurity.test.ts src/server/responseCache.test.ts"
+    "test": "node --test src/app/api/community-reports/validation.test.ts src/data/railwayCatalog.test.ts src/lib/browserGuidance.test.ts src/lib/communityPush.test.ts src/lib/communityRateLimit.test.ts src/lib/communityReports.test.ts src/lib/jrEast/serviceStatus.test.ts src/lib/mapViewport.test.ts src/lib/odpt/direction.test.ts src/lib/odpt/mapper.test.ts src/lib/odpt/network.test.ts src/lib/odpt/saikyoKawagoe.test.ts src/lib/pushSubscriptionRegistry.test.ts src/lib/serviceStatus.test.ts src/lib/trainApiPayload.test.ts src/lib/trainMotion.test.ts src/lib/trainStatus.test.ts src/server/requestSecurity.test.ts src/server/responseCache.test.ts"
   },
   "dependencies": {
     "lucide-react": "^0.469.0",

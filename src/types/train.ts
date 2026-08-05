@@ -74,6 +74,9 @@ export interface ServiceStatus {
   /** ISO8601 文字列 */
   updatedAt: string;
   dataAccuracy: DataAccuracy;
+  /** 運行情報の表示元。外部公式情報を補助利用した場合のみ付与する。 */
+  sourceLabel?: string;
+  sourceUrl?: string;
 }
 
 /** データ取得元の種別 */

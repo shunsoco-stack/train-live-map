@@ -91,6 +91,18 @@ export function DataUsageNotice({ source }: DataUsageNoticeProps) {
                   正確性・完全性は保証されません。
                 </p>
                 <p>
+                  運転見合わせなどの重大な運行情報は、ODPTで取得できない場合に
+                  <a
+                    href="https://traininfo.jreast.co.jp/train_info/kanto.aspx"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mx-1 text-orange-300 underline underline-offset-4"
+                  >
+                    JR東日本公式の関東エリア運行情報
+                  </a>
+                  をサーバー側で補助参照します。
+                </p>
+                <p>
                   列車アイコンの移動は駅間情報から推定したアニメーションであり、
                   GPSによる実測位置・軌跡ではありません。
                 </p>
