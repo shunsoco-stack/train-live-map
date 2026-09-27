@@ -24,7 +24,7 @@ JR東日本の関東エリアを走る在来線の列車位置と運行状況を
 | フレームワーク | Next.js（App Router）/ React 19 |
 | 言語 | TypeScript |
 | スタイリング | Tailwind CSS |
-| 地図 | MapLibre GL JS + OpenStreetMap 系タイル（CARTO Voyager / 明るい Google Maps 風） |
+| 地図 | MapLibre GL JS + OpenFreeMap Positron（OpenStreetMapベース） |
 | 実データ | 公共交通オープンデータセンター（ODPT）API |
 | アイコン | lucide-react |
 | Lint | ESLint（eslint-config-next） |
@@ -307,11 +307,12 @@ ODPT_ACCESS_TOKEN=発行されたトークン
 
 ## 地図タイル利用時の注意
 
-- 本アプリは OpenStreetMap ベースの **CARTO Voyager**（明るい Google Maps 風）ラスタタイルを使用しています。
-- 地図タイルには各提供元の**利用規約・利用制限（レート制限、帰属表示など）**があります。
+- 本アプリは OpenStreetMap ベースの **OpenFreeMap Positron** ベクタータイルを使用しています。
+- 地図タイルには各提供元の利用条件と帰属表示要件があります。
+  - OpenFreeMap: <https://openfreemap.org/>
+  - OpenMapTiles: <https://www.openmaptiles.org/>
   - OpenStreetMap: <https://www.openstreetmap.org/copyright>
-  - CARTO: <https://carto.com/attributions>
-- 個人検証用途を超える利用（本番運用・商用）では、必ず各提供元の利用条件を確認し、必要に応じて**自前のタイルサーバー**や**契約済みプロバイダ**へ差し替えてください。
+- 大規模運用やSLAが必要な場合は、自前のタイルサーバーまたは契約済みプロバイダへの切り替えを検討してください。
 - 帰属表示（attribution）は地図右下に表示しています。削除しないでください。
 
 ## 外部データ利用規約の確認

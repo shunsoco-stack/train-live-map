@@ -28,7 +28,7 @@
 | フレームワーク | Next.js 15.1.6（App Router） | React 19 |
 | 言語 | TypeScript（strict） | **`any` 不使用** |
 | スタイリング | Tailwind CSS v3 | ダークテーマ基調 |
-| 地図 | MapLibre GL JS v4 | ラスタタイル（CARTO Voyager） |
+| 地図 | MapLibre GL JS v4 | OpenFreeMap Positron（ベクタータイル） |
 | アイコン | lucide-react | 地図マーカーは自前 SVG |
 | Lint | ESLint（eslint-config-next） | **警告ゼロを維持** |
 | パッケージ管理 | npm | |
@@ -108,7 +108,7 @@ src/
 │   ├── map/
 │   │   ├── MapPanel.tsx                  # next/dynamic(ssr:false) で地図を遅延読込＋ローディング
 │   │   ├── TrainMapInner.tsx             # ★MapLibre 本体。路線・駅・列車マーカー描画
-│   │   └── mapStyle.ts                   # 地図スタイル(CARTO Voyager + 背景レイヤー)
+│   │   └── mapStyle.ts                   # 地図スタイル(OpenFreeMap Positron)
 │   ├── trains/
 │   │   ├── TrainDashboard.tsx            # ★画面全体を束ねるクライアントコンポーネント
 │   │   ├── TrainDetailPanel.tsx          # 詳細ボトムシート(スマホは下から表示)
@@ -256,8 +256,8 @@ MapLibre は `window` を参照するため、`MapPanel.tsx` で `next/dynamic(.
 
 ### 6-7. 地図スタイル
 
-`features/map/mapStyle.ts`。CARTO Voyager（明るい Google Maps 風）のラスタタイル。
-**背景レイヤー（`background-color: #e8eaed`）を必ず最下部に置いています** — タイル読込前/失敗時でも路線・駅・列車が描画されるようにするためです（これが無いと地図全体が真っ白/描画されない事象が起きます）。
+`features/map/mapStyle.ts`。OpenFreeMap Positron（明るい配色）のベクタータイル。
+地図コンテナ自体に `background-color: #e8eaed` 相当の下地を置き、タイル読込前/失敗時でも路線・駅・列車を視認できるようにしています。
 
 ### 6-8. モックの動き
 
@@ -407,9 +407,9 @@ npm run build        # 型チェック含む
 
 ## 12. 法務・利用規約（必ず確認）
 
-- **地図タイル**: CARTO Voyager（OpenStreetMap ベース）。帰属表示は地図右下に表示中（**削除しないこと**）。
-  - https://www.openstreetmap.org/copyright / https://carto.com/attributions
-  - 個人検証を超える利用では利用条件の確認、必要なら自前タイル/契約プロバイダへ差し替え。
+- **地図タイル**: OpenFreeMap Positron（OpenStreetMap ベース）。帰属表示は地図右下に表示中（**削除しないこと**）。
+  - https://openfreemap.org/ / https://www.openmaptiles.org/ / https://www.openstreetmap.org/copyright
+  - 大規模運用やSLAが必要な場合は自前タイル/契約プロバイダへ差し替え。
 - **ODPT**: データ提供者ごとに条件が異なります。JR東日本など一部は追加の同意・申請が必要な場合があります。
   - https://developer.odpt.org/ / https://ckan.odpt.org/
   - **表示・保存・二次利用・再配布の可否は提供元により異なります**。履歴保存機能を作る際は必ず確認してください。

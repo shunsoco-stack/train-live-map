@@ -751,7 +751,7 @@ export default function TrainMapInner({
     <>
       <div
         ref={containerRef}
-        className="absolute inset-0 h-full w-full"
+        className="absolute inset-0 h-full w-full bg-[#e8eaed]"
         aria-label="関東エリアのJR列車位置地図"
         role="application"
       />
