@@ -9,6 +9,19 @@ import type { CommunityReportRecord } from "../types/community.ts";
 
 const NOW = Date.UTC(2026, 6, 29, 3, 0, 0);
 
+test("再開報告は旧クライアントの平常票と互換で、不整合な組合せを拒否する", () => {
+  const vote = validateCommunityReportVote({lineId: "yamanote", status: "on-time", event: "resumed"});
+  assert.equal(vote?.event, "resumed");
+  assert.equal(validateCommunityReportVote({lineId: "yamanote", status: "suspended", event: "resumed"}), null);
+  assert.equal(validateCommunityReportVote({lineId: "yamanote", status: "on-time", event: "unknown"}), null);
+  const summaries = aggregateCommunityReports([
+    {...report("yamanote", "a", "on-time"), event: "resumed"},
+    report("yamanote", "b", "on-time"),
+  ], NOW);
+  assert.equal(summaries[0].resumedCount, 1);
+  assert.equal(summaries[0].counts.onTime, 2);
+});
+
 function report(
   lineId: string,
   reporterHash: string,

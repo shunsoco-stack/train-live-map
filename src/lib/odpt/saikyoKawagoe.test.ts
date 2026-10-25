@@ -6,10 +6,10 @@ import {
   splitSaikyoKawagoeStations,
 } from "./saikyoKawagoe.ts";
 
-const osaki = [139.72824, 35.61994] as const;
-const omiya = [139.62396, 35.90626] as const;
-const nisshin = [139.60606, 35.93153] as const;
-const kawagoe = [139.4832, 35.90668] as const;
+const osaki = [139.72824, 35.61994] as [number, number];
+const omiya = [139.62396, 35.90626] as [number, number];
+const nisshin = [139.60606, 35.93153] as [number, number];
+const kawagoe = [139.4832, 35.90668] as [number, number];
 
 test("単独の川越線を埼京線・川越線の共通系統と誤判定しない", () => {
   assert.equal(

@@ -39,6 +39,8 @@ export function validateCommunityReportVote(
     return null;
   }
 
+  if (value.event !== undefined && (value.event !== "resumed" || status !== "on-time")) return null;
+
   if (status === "delayed") {
     const delayMinutes = value.delayMinutes;
     if (
@@ -52,7 +54,7 @@ export function validateCommunityReportVote(
     return { lineId, status, delayMinutes };
   }
 
-  return { lineId, status, delayMinutes: null };
+  return { lineId, status, delayMinutes: null, ...(value.event === "resumed" ? {event: "resumed" as const} : {}) };
 }
 
 /**
@@ -121,6 +123,7 @@ export function aggregateCommunityReports(
                   .filter((value): value is number => value !== null),
               )
             : null,
+        ...(lineReports.some(item => item.event === "resumed") ? { resumedCount: lineReports.filter(item => item.event === "resumed").length } : {}),
         voteCount: lineReports.length,
         counts,
         updatedAt,

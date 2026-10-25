@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import maplibregl from "maplibre-gl";
+import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+
+maplibregl.setWorkerUrl('/maplibre/maplibre-gl-worker.mjs');
 import type { TrainLocation } from "@/types/train";
 import type { RailwayMapLine } from "@/types/railway";
 import { MAP_STYLE } from "@/features/map/mapStyle";
