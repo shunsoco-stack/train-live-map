@@ -7,6 +7,7 @@ export interface CommunityReportVote {
   lineId: string;
   status: CommunityReportStatus;
   delayMinutes: number | null;
+  event?: "resumed";
 }
 
 export interface CommunityReportRecord extends CommunityReportVote {
@@ -28,6 +29,7 @@ export interface CommunityReportSummary {
   lineId: string;
   status: CommunityReportStatus;
   delayMinutes: number | null;
+  resumedCount?: number;
   voteCount: number;
   counts: CommunityReportCounts;
   updatedAt: string;

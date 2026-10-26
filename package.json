@@ -8,12 +8,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .vinext",
-    "test": "node --test src/app/api/community-reports/validation.test.ts src/data/railwayCatalog.test.ts src/lib/browserGuidance.test.ts src/lib/communityPush.test.ts src/lib/communityRateLimit.test.ts src/lib/communityReports.test.ts src/lib/jrEast/serviceStatus.test.ts src/lib/mapViewport.test.ts src/lib/odpt/api.test.ts src/lib/odpt/direction.test.ts src/lib/odpt/mapper.test.ts src/lib/odpt/network.test.ts src/lib/odpt/saikyoKawagoe.test.ts src/lib/pushSubscriptionRegistry.test.ts src/lib/serviceStatus.test.ts src/lib/trainApiPayload.test.ts src/lib/trainMotion.test.ts src/lib/trainStatus.test.ts src/server/requestSecurity.test.ts src/server/responseCache.test.ts"
+    "test": "node --test src/app/api/community-reports/validation.test.ts src/data/railwayCatalog.test.ts src/lib/browserGuidance.test.ts src/lib/communityPush.test.ts src/lib/communityRateLimit.test.ts src/lib/communityReports.test.ts src/lib/jrEast/serviceStatus.test.ts src/lib/mapViewport.test.ts src/lib/odpt/api.test.ts src/lib/odpt/direction.test.ts src/lib/odpt/mapper.test.ts src/lib/odpt/network.test.ts src/lib/odpt/saikyoKawagoe.test.ts src/lib/pushSubscriptionRegistry.test.ts src/lib/serviceStatus.test.ts src/lib/trainApiPayload.test.ts src/lib/trainMotion.test.ts src/lib/trainStatus.test.ts src/server/requestSecurity.test.ts src/server/responseCache.test.ts",
+    "test:native-push": "node --experimental-strip-types --test src/lib/nativePush.test.ts src/lib/nativePushCrypto.test.ts src/server/nativePushProvider.test.ts",
+    "prebuild": "node scripts/prepare-map-worker.mjs",
+    "predev": "node scripts/prepare-map-worker.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.469.0",
-    "maplibre-gl": "^4.7.1",
-    "next": "16.2.12",
+    "maplibre-gl": "6.15.0",
+    "next": "16.4.3",
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "web-push": "^3.6.7"
@@ -25,13 +28,13 @@
     "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.4.20",
     "eslint": "9.39.5",
-    "eslint-config-next": "16.2.12",
+    "eslint-config-next": "16.4.3",
     "postcss": "8.5.25",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3"
   },
   "overrides": {
     "postcss": "8.5.25",
-    "sharp": "0.35.3"
+    "sharp": "0.35.5"
   }
 }

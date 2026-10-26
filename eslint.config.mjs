@@ -14,5 +14,5 @@ export default defineConfig([
       "react-hooks/refs": "off",
     },
   },
-  globalIgnores([".next/**", "build/**", "dist/**", ".vinext/**"]),
+  globalIgnores([".next/**", "build/**", "dist/**", ".vinext/**", "public/maplibre/**"]),
 ]);
