@@ -15,7 +15,10 @@ Server-only environment variables:
 - Existing KV_REST_API_URL + KV_REST_API_TOKEN (or UPSTASH equivalents).
 - APNS_STORAGE_KEY: 32 random bytes encoded as 64 lowercase hex. Store securely; rotation requires a migration or subscriptions will need registration again.
 - APNS_BUNDLE_ID: approved iOS bundle identifier.
-- APNS_KEY_ID / APNS_TEAM_ID / APNS_PRIVATE_KEY: existing Apple APNs signing key. Never copy to the iOS repository.
+- APNS_TEAM_ID: approved Apple team.
+- APNS_SANDBOX_KEY_ID / APNS_SANDBOX_PRIVATE_KEY: sandbox signing key; prefer a topic-specific key limited to this app.
+- APNS_PRODUCTION_KEY_ID / APNS_PRODUCTION_PRIVATE_KEY: separate production signing key limited to this app.
+- APNS_KEY_ID / APNS_PRIVATE_KEY: optional compatibility fallback only for an existing key that Apple permits in both environments. A partially configured environment-specific pair fails closed. JWTs are cached separately by environment and invalidated when key configuration changes. Never copy signing keys to the iOS repository.
 - CRON_SECRET: scheduler authentication.
 - APNS_DELIVERY_ENABLED=true only after sandbox verification.
 - APNS_PRODUCTION_DELIVERY_APPROVED=true only after the owner's explicit production-push approval.
