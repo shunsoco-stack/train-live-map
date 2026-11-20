@@ -1,6 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
-import { adsenseClientId } from "@/lib/adsense";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import "./globals.css";
 
@@ -45,9 +43,6 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
-  other: adsenseClientId
-    ? { "google-adsense-account": adsenseClientId }
-    : undefined,
   openGraph: {
     title,
     description,
@@ -96,15 +91,6 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         {children}
         <ServiceWorkerRegistration />
-        {adsenseClientId && (
-          <Script
-            id="google-adsense"
-            async
-            strategy="afterInteractive"
-            crossOrigin="anonymous"
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClientId}`}
-          />
-        )}
       </body>
     </html>
   );

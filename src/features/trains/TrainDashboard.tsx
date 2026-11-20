@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { AdSenseBanner } from "@/components/AdSenseBanner";
+import { NinjaAdMaxSlot } from "@/components/ninja-admax-slot";
 import { AppHeader } from "@/components/AppHeader";
 import { BrowserGuidance } from "@/components/BrowserGuidance";
 import { DataSourceNotice } from "@/components/DataSourceNotice";
@@ -249,7 +249,7 @@ export function TrainDashboard() {
         )}
       </main>
 
-      <AdSenseBanner />
+      <NinjaAdMaxSlot />
 
       {/* 詳細ボトムシート */}
       <TrainDetailPanel train={selectedTrain} onClose={() => setSelectedId(null)} />
